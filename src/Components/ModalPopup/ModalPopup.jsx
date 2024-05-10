@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
-import Success from "../../assets/Svgs/Success";
-import Error from "../../assets/Svgs/Error";
+import Success from "../../assets/svgs/Success";
+import Error from "../../assets/svgs/Error";
 import "./loaderAnimation.css";
 
 const ModalPopup = ({ modalState, setModalState }) => {
@@ -27,10 +27,10 @@ const ModalPopup = ({ modalState, setModalState }) => {
 
   return (
     <article
-      className={` fade-out ${
-        modalState?.errorFlag ? "text-red-600" : "text-[#25F433]"
-      } rounded-2xl overflow-hidden bg-white shadow-2xl mt-3  flex flex-col items-center gap-6 justify-start max-w-[250px] min-w-[200px]   p-7    text-red-600 z-[99999] fixed top-0 left-1/2 -translate-x-1/2 `}
-    >
+    className={`fade-out ${
+      modalState?.errorFlag? "text-red-600" : "text-[#25F433]"
+    } overflow-hidden bg-white shadow-2xl mt-3  flex flex-row items-center gap-6 justify-between w-full   p-1    text-red-600 z-[99999] fixed top-[60px] left-0  `}
+  >
       {modalState?.errorFlag ? <Error /> : <Success />}
       <h1
         className={`${

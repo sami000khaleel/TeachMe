@@ -15,14 +15,20 @@ const App = () => {
     hideFlag: true,
   });
   const [theme, setTheme] = useState("");
-  const [user, setUser] = useState({});
+  const [user, setUser] = useState({
+    _id:'',
+    name:'',
+    email:'',
+    password:'',
+    code:''
+  });
   const [courses,setCourses]=useState([])
   useEffect(() => {
     handleThemeInit(setTheme);
   }, []);
   useEffect(() => updateTokenCookie(user), [user]);
   return (
-    <main className="dark:text-primaryLight text-primaryDark relative min-h-screen bg-primaryLightBackground dark:bg-primaryDarkBackground">
+    <main className="flex flex-col justify-center items-center dark:text-primaryLight text-primaryDark relative min-h-screen bg-primaryLightBackground dark:bg-primaryDarkBackground">
       {!modalState.hideFlag?<ModalPopup setModalState={setModalState} modalState={modalState}  />:null}
       <Navbar user={user} setCourses={setCourses} modalState={modalState} setModalState={setModalState} setUser={setUser} />
       <Outlet
