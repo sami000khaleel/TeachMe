@@ -10,6 +10,8 @@ export function handleThemeInit(setTheme) {
                 isDarkMode=Cookies.getItem('theme')==='dark'?true:false
                 isDarkMode?document.documentElement.classList.add('dark'):document.documentElement.classList.remove('dark')
                 isDarkMode?setTheme('dark'):setTheme('light')
+                isDarkMode?Cookies.setItem('theme','dark'):Cookies.setItem('theme','light')
+
                 return
             }
    isDarkMode = window.matchMedia('(prefers-color-scheme: dark)').matches;
@@ -22,6 +24,8 @@ export function handleThemeInit(setTheme) {
 
 }
    export function handleThemeChange(setTheme){
+    return e=>{
+
         const theme=Cookies.getItem('theme')
         if(theme==='dark'){
             setTheme('light')
@@ -35,6 +39,7 @@ export function handleThemeInit(setTheme) {
             document.documentElement.classList.add('dark')
             return
         }
+    }
     }
     export function updateTokenCookie(user){
         // Cookies.setItem('user',)

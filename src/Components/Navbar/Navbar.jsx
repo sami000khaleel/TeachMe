@@ -1,20 +1,34 @@
-import React, { useState } from "react";
+import React, { useState,useEffect } from "react";
 import Logo from "./Logo/Logo";
 import SearchForm from "./SearchForm/SearchForm.jsx";
-import { Link } from "react-router-dom";
-import { LogIn, LogOut, User } from "lucide-react";
-const Navbar = ({ user, modalState, setModalState, setCourses }) => {
+import DrawerMenu from "../DrawerMenu/DrawerMenu.jsx";
+import { handleThemeChange } from "../../App.js";
+import { Link,useLocation } from "react-router-dom";
+import { LogIn, LogOut, Menu, User } from "lucide-react";
+const Navbar = ({ theme,setTheme,user, modalState, setModalState, setCourses }) => {
+  const [drawerMenuFlag,setDrawerMenuFlag]=useState(false)
+  const location=useLocation()
+  useEffect(()=>setDrawerMenuFlag(false),[location.pathname])
   return (
     <header
       aria-label="header"
-      className="text-primaryLight  dark:text-primaryDark fixed  bg-primaryDarkBackground shadow-xl dark:bg-primaryLightBackground top-0 left-0 w-full "
+      className="  text-primaryDark fixed  white shadow-xl dark:bg-black top-0 left-0 w-full "
     >
       <nav className="z-30 flex justify-between items-center py-4 px-5 ">
+       <span className="flex items-center gap-5 justify-center" >
         <Logo />
-        <article className="flex items-center gap-5 flex-row center">
+        <button  onClickCapture={handleThemeChange(setTheme)} className="p-2 rounded-lg dark:text-primaryDarkText  bg-primaryDark dark:bg-primaryDarkBackground text-white  " >{theme}</button>
+       </span>
+        <article className="flex items-center gap-5 flex-row center relative ">
+        
+         <button onClick={(e)=>setDrawerMenuFlag(pre=>!pre)} className="sm:hidden" >
+         <Menu/>
+         </button>
+         {drawerMenuFlag?<DrawerMenu setDrawerMenuFlag={setDrawerMenuFlag} theme={theme} uesr={user} modalState={modalState} setModalState={setModalState}  setCourses={setCourses} />:null}
+         <div className="sm:flex flex-row gap-5 items-center hidden ">
           {!user?._id ? (
             <Link to="/signup">
-              <LogIn color="black" cursor={"pointer"} />
+              <LogIn color={`${theme==='dark'?"white":'black'}`} cursor={"pointer"} />
             </Link>
           ) : (
             <Link to={`/user/${user._id}`} >
@@ -25,9 +39,11 @@ const Navbar = ({ user, modalState, setModalState, setCourses }) => {
             modalState={modalState}
             setModalState={setModalState}
             setCourses={setCourses}
-          />
+            />
+            </div>
         </article>
       </nav>
+      
     </header>
   );
 };

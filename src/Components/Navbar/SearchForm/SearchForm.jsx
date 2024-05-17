@@ -12,7 +12,7 @@ const SearchForm = ({ setCourses, modalState, setModalState }) => {
         placeholder="search for courses"
         onChange={(e) => setQuery(e.target.value)}
         aria-label="search for course field"
-        className="rounded-md shadow-lg p-2"
+        className="rounded-md w-full border border-black  shadow-lg p-2"
         type="text"
         name="course"
         id="course"

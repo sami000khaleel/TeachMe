@@ -1,57 +1,36 @@
 import React, { useState } from "react";
-import api from "../api/api";
-import Cookies from "js-cookies";
-import { useNavigate, useOutletContext } from "react-router-dom";
+import ModalPopup from "../Components/ModalPopup/ModalPopup";
+import { Link, useOutlet, useOutletContext } from "react-router-dom";
+import { userDataChange, handleResetPassword } from "./utilties";
+import LoadingSpinner from "../Components/LoadingSpinner/LoadingSpinner";
+import { useNavigate } from "react-router-dom";
 const ResetPassword = () => {
-  const navigate = useNavigate();
-  const [password, setPassword] = useState("");
-  const { modalState, setModalState } = useOutletContext();
+  const { modaState, setModalState, user, setUser } = useOutletContext();
   const [loadingFlag, setLoadingFlag] = useState(false);
-  async function handleSubmitpassword(e) {
-    e.preventDefault()
-    try {
-      setLoadingFlag(true);
-      const { data } = await api.resetPassword(password);
-      setLoadingFlag(false);
-      setModalState({
-        message: "password has been changed successfullt",
-        status: 200,
-        errorFlag: false,
-        hideFlag: false,
-      });
-      navigate("/home");
-    } catch (err) {
-      setLoadingFlag(false);
-      setModalState({
-        message: err.response.data.message,
-        status: err.response.status,
-        errorFlag: true,
-        hideFlag: false,
-      });
-    }
-  }
+  const navigate=useNavigate()
   return (
-    <form
-      className="card shadow-xl border rounded-xl p-6 flex flex-col justify-center items-start gap-6"
-      id="verify password"
-    >
-      <h1 className="text-3xl">type in your new password</h1>
-      <input
-        type="password"
-        name="password"
-        id="password"
-        value={password}
-        className="'border relative p-3   bg-[hsla(0,0%,97%,1)] "
-        placeholder="password"
-        onChange={(e) => setPassword(e.target.value)}
-      />
-      <button
-        onClick={handleSubmitpassword}
-        className="bg-black text-white p-3 rounded-lg hover:bg-gray-800"
-      >
-        {loadingFlag ? "loading" : "submit the password"}
-      </button>
-    </form>
+    <article className="flex justify-center items-center w-full h-screen" >
+
+      <form className="mx-4 flex flex-col gap-5 shadow-xl w-full max-w-md p-8 bg-white dark:bg-black  rounded-xl">
+        <h2 className="text-3xl font-bold  mb-4">reset your password</h2>
+        <input
+          type="password"
+          value={user.password}
+          onChange={userDataChange(setUser)}
+          placeholder="Type in your new password"
+          name="password"
+          id="password"
+          className="block w-full bg-primaryLightBackground    p-2 pl-3 font-bold dark:text-black"
+        />
+        <button
+          onClick={handleResetPassword(user, setModalState, setLoadingFlag, setUser,navigate)}
+          className="bg-primaryDark flex justify-center items-center  hover:bg-blue-700 text-white  font-bold py-2 px-4 rounded"
+        >
+          {loadingFlag?<LoadingSpinner/>:'reset'}
+        </button>
+
+      </form>
+      </article>
   );
 };
 

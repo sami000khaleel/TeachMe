@@ -7,7 +7,7 @@ import Signup from './pages/Signup.jsx'
 import Login from './pages/Login.jsx'
 import PageNotFound from './Pages/PageNotFound '
 import RecoverAccount from './pages/RecoverAccount.jsx'
-import ResetPassword from "./Pages/ResetPassword";
+import ResetPassword from "./pages/ResetPassword.jsx";
 const router = createBrowserRouter([
   {
     path: "/",
