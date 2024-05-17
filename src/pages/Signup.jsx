@@ -9,6 +9,7 @@ const Signup = () => {
   const [loadingFlag, setLoadingFlag] = useState(false);
   const [image,setImage]=useState()
   const navigate=useNavigate()
+  console.log(user)
   return (
     <article className="flex justify-center items-center w-full h-screen" >
 
@@ -16,11 +17,20 @@ const Signup = () => {
         <h2 className="text-3xl font-bold  mb-4">Sign up</h2>
         <input
           type="text"
-          value={user.name}
+          value={user.firstname}
           onChange={userDataChange(setUser)}
-          placeholder="Type in your name"
-          name="name"
-          id="name"
+          placeholder="Type in your firstname"
+          name="firstname"
+          id="firstname"
+          className="block w-full bg-primaryLightBackground    p-2 pl-3 font-bold dark:text-black"
+        />
+        <input
+          type="text"
+          value={user.lastname}
+          onChange={userDataChange(setUser)}
+          placeholder="Type in your lastname"
+          name="lastname"
+          id="lastname"
           className="block w-full bg-primaryLightBackground    p-2 pl-3 font-bold dark:text-black"
         />
         <input
@@ -42,7 +52,7 @@ const Signup = () => {
           className="block w-full bg-primaryLightBackground    p-2 pl-3 font-bold dark:text-black"
         />
      <label htmlFor="image" className="cursor-pointer block w-full bg-primaryLightBackground    p-2 pl-3 font-bold dark:text-[#919191]">
-  Upload personal image
+{  image?.name?image?.name:'Upload personal image'}
   <input
     type="file"
     id="image"
@@ -52,12 +62,12 @@ const Signup = () => {
   />
 </label>
         <button
-          onClick={handleSignup(user, setModalState, setLoadingFlag, setUser,navigate)}
+          onClick={handleSignup(user,image, setModalState, setLoadingFlag, setUser,navigate)}
           className="bg-primaryDark flex justify-center items-center  hover:bg-blue-700 text-white  font-bold py-2 px-4 rounded"
         >
           {loadingFlag?<LoadingSpinner/>:'Submit'}
         </button>
-        <h1>already have an account? <Link to='/login'> <span className="p-2 rounded-lg text-primaryLightText dark:text-primaryDarkText dark:bg-primaryDarkBackground bg-primaryLightBackground hover:opacity-80" >login</span></Link></h1>
+        <h1>already have an account? <Link to='/login'> <span className=" p-2 rounded-lg text-primaryLightText dark:text-primaryDarkText dark:bg-primaryDarkBackground bg-primaryLightBackground hover:opacity-80" >login</span></Link></h1>
       </form>
       </article>
   );

@@ -24,14 +24,14 @@ const Navbar = ({ theme,setTheme,user, modalState, setModalState, setCourses }) 
          <button onClick={(e)=>setDrawerMenuFlag(pre=>!pre)} className="sm:hidden" >
          <Menu/>
          </button>
-         {drawerMenuFlag?<DrawerMenu setDrawerMenuFlag={setDrawerMenuFlag} theme={theme} uesr={user} modalState={modalState} setModalState={setModalState}  setCourses={setCourses} />:null}
+         {drawerMenuFlag?<DrawerMenu setDrawerMenuFlag={setDrawerMenuFlag} theme={theme} user={user} modalState={modalState} setModalState={setModalState}  setCourses={setCourses} />:null}
          <div className="sm:flex flex-row gap-5 items-center hidden ">
-          {!user?._id ? (
+          {!JSON.parse(localStorage.getItem('user'))?.id? (
             <Link to="/signup">
               <LogIn color={`${theme==='dark'?"white":'black'}`} cursor={"pointer"} />
             </Link>
           ) : (
-            <Link to={`/user/${user._id}`} >
+            <Link to={`/user/${user.id}`} >
             <User color="black" cursor={"pointer"} />
             </Link>
           )}

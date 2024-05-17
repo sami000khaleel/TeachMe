@@ -6,11 +6,40 @@ export const userDataChange = (setUser) => (e) => {
   setUser((pre) => ({ ...pre, [e.target.name]: e.target.value }));
 };
 export const handleSignup =
-  (user, setModalState, setLoadingFlag, setUser, navigate) => async (e) => {
+  (user, image, setModalState, setLoadingFlag, setUser, navigate) =>
+  async (e) => {
     e.preventDefault();
-    if (Object.keys(user).some((field) => !user[field]))
+    if (!image?.name)
       return setModalState({
-        message: "you need to fill out all the fields",
+        message: "you must upload an image of your self",
+        status: 400,
+        errorFlag: true,
+        hideFlag: false,
+      });
+    if (!user?.email)
+      return setModalState({
+        message: "you missed the email",
+        status: 400,
+        errorFlag: true,
+        hideFlag: false,
+      });
+    if (!user?.firstname)
+      return setModalState({
+        message: "you missed the firstname",
+        status: 400,
+        errorFlag: true,
+        hideFlag: false,
+      });
+    if (!user?.lastname)
+      return setModalState({
+        message: "you missed the lastname",
+        status: 400,
+        errorFlag: true,
+        hideFlag: false,
+      });
+    if (!user?.password)
+      return setModalState({
+        message: "you missed the password",
         status: 400,
         errorFlag: true,
         hideFlag: false,
@@ -18,12 +47,13 @@ export const handleSignup =
     //signup code
     try {
       setLoadingFlag(true);
-      const { data } = await api.signup(user);
-      setUser(data.user);
-      Cookies.setItem("user", data.user);
+      const { data } = await api.signup(user, image);
+      setUser({ ...data,role:'student',code:'' });
+      localStorage.setItem("user", JSON.stringify({...data,role:'student'}));
       setLoadingFlag(false);
       navigate("/");
     } catch (err) {
+      console.log(err);
       setLoadingFlag(false);
       setModalState({
         message: "error while signing up.",
@@ -34,12 +64,19 @@ export const handleSignup =
     }
   };
 // handle cookies
-export const handleLogin =
+export const handleLoginStudent =
   (user, setModalState, setLoadingFlag, setUser, navigate) => async (e) => {
     e.preventDefault();
-    if (Object.keys(user).some((field) => !user[field]))
+    if (!user?.email)
       return setModalState({
-        message: "you need to fill out all the fields",
+        message: "you need to fill out all the email",
+        status: 400,
+        errorFlag: true,
+        hideFlag: false,
+      });
+    if (!user?.password)
+      return setModalState({
+        message: "you need to fill out all the email",
         status: 400,
         errorFlag: true,
         hideFlag: false,
@@ -47,7 +84,52 @@ export const handleLogin =
     try {
       setLoadingFlag(true);
       const { data } = await api.login(user);
-      setUser(data.user);
+      const user = {
+        id: data.id_stu,
+        firstname: data.first_name_stu,
+        lastname: data.last_name_stu,
+        password:data.password,
+        email: data.email_stu,
+        imageUrl: data.image_url,
+        code:'',
+        role:'student'
+      };
+      setUser(user);
+      localStorage.setItem('user',JSON.stringify(user))
+      setLoadingFlag(false);
+      navigate("/student");
+    } catch (err) {
+      console.log(err);
+      setLoadingFlag(false);
+      setModalState({
+        message: "one or both of the fields are wrong",
+        status: 400,
+        errorFlag: true,
+        hideFlag: false,
+      });
+    }
+  };
+export const handleLoginTeacher =
+  (user, setModalState, setLoadingFlag, setUser, navigate) => async (e) => {
+    e.preventDefault();
+    if (!user?.email)
+      return setModalState({
+        message: "you need to fill out all the email",
+        status: 400,
+        errorFlag: true,
+        hideFlag: false,
+      });
+    if (!user?.password)
+      return setModalState({
+        message: "you need to fill out all the email",
+        status: 400,
+        errorFlag: true,
+        hideFlag: false,
+      });
+    try {
+      setLoadingFlag(true);
+      const { data } = await api.login(user);
+      setUser(data);
       Cookies.setItem("user", data.user);
       setLoadingFlag(false);
       navigate("/");
@@ -92,13 +174,13 @@ export const sendEmail =
   (setEmailVerifiedFlag, email, setModalState, setLoadingFlag, setStep) =>
   async (e) => {
     e.preventDefault();
-    if(!email)
-    return setModalState({
-      message: "you need to fill out all the fields",
-      status: 400,
-      errorFlag: true,
-      hideFlag: false,
-    });
+    if (!email)
+      return setModalState({
+        message: "you need to fill out all the fields",
+        status: 400,
+        errorFlag: true,
+        hideFlag: false,
+      });
     try {
       setLoadingFlag(true);
       const { data } = await api.sendEmail(email);
@@ -123,15 +205,17 @@ export const sendEmail =
     }
   };
 // handle cookies
-export const  handleResetPassword=(
-  password,
-  setUser,
-  navigate,
-  setLoadingFlag,
-  setModalState
-) =>async (e) => {
+export const handleResetPassword =
+  (password, setUser, navigate, setLoadingFlag, setModalState) => async (e) => {
     try {
-      if(!password)
+      if (!Cookies.getItem("email") || !Cookies.getItem("password"))
+        return setModalState({
+          message: "you have to be registered first",
+          status: 400,
+          errorFlag: true,
+          hideFlag: false,
+        });
+      if (!password)
         return setModalState({
           message: "write the new password",
           status: 400,
@@ -142,6 +226,7 @@ export const  handleResetPassword=(
       const { data } = await api.resetPassword(password);
       setUser(data.user);
       // handle cookies
+      Cookies.setItem("password", data.password);
       setLoadingFlag(false);
       navigate("/");
     } catch (error) {
@@ -154,4 +239,3 @@ export const  handleResetPassword=(
       });
     }
   };
-

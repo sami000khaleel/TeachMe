@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import ModalPopup from "../Components/ModalPopup/ModalPopup";
 import { Link, useOutlet, useOutletContext } from "react-router-dom";
-import { userDataChange, handleLogin } from "./utilties";
+import { userDataChange, handleLoginStudent,handleLoginTeacher } from "./utilties";
 import LoadingSpinner from "../Components/LoadingSpinner/LoadingSpinner";
 import { useNavigate } from "react-router-dom";
 const Login = () => {
@@ -13,6 +13,27 @@ const Login = () => {
 
       <form className="mx-4 flex flex-col gap-5 shadow-xl w-full max-w-md p-8 bg-white dark:bg-black  rounded-xl">
         <h2 className="text-3xl font-bold  mb-4">Log in</h2>
+    <span className="flex flex-row items-center " >
+
+
+<label htmlFor="role" className="text-primaryLightText dark:text-primaryDarkText dark:bg-primaryDarkBackground bg-primaryLightBackground justify-center w-[300px] hover:opacity-80 flex  ">
+  I am a teacher
+</label>
+        <input
+  type="checkbox"
+  id="role"
+  name="role"
+  value="teacher"
+  onChange={(e) => {
+    if (e.target.checked) {
+      setUser((prevUser) => ({...prevUser, role:'teacher' }));
+    } else {
+      setUser((prevUser) => ({...prevUser, role: 'student' }));
+    }
+  }}
+  className="block w-full bg-primaryLightBackground    p-2 pl-3 font-bold dark:text-black"
+/>
+  </span>
         <input
           type="email"
           value={user.email}
@@ -32,7 +53,7 @@ const Login = () => {
           className="block w-full bg-primaryLightBackground    p-2 pl-3 font-bold dark:text-black"
         />
         <button
-          onClick={handleLogin(user, setModalState, setLoadingFlag, setUser,navigate)}
+          onClick={user.role==='student'?handleLoginStudent(user, setModalState, setLoadingFlag, setUser,navigate):handleLoginTeacher()}
           className="bg-primaryDark flex justify-center items-center  hover:bg-blue-700 text-white  font-bold py-2 px-4 rounded"
         >
           {loadingFlag?<LoadingSpinner/>:'Log in'}

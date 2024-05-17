@@ -41,6 +41,3 @@ export function handleThemeInit(setTheme) {
         }
     }
     }
-    export function updateTokenCookie(user){
-        // Cookies.setItem('user',)
-    }
