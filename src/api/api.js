@@ -8,10 +8,11 @@ export default class api {
       `${api.url}/course_info?id_course=${id_course}`
     );
   }
-  static async resetPassword(password,role) {
+  static async resetPassword(password, role) {
     const user = JSON.parse(localStorage.getItem("user"));
     const response = await axios.patch(
-      `${api.url}/student/reset_password`,{password,role:user.role},
+      `${api.url}/student/reset_password`,
+      { password, role: user.role },
 
       {
         headers: {
@@ -66,6 +67,17 @@ export default class api {
     const response = await axios.get(
       `${api.url}/student/verify_code?code=${code}`
     );
+    return response;
+  }
+  static async getRandomCourses() {
+    const user = JSON.parse(localStorage.getItem("user"));
+    const response = await axios.get(`${api.url}/student/get_courses`, {
+      headers: {
+        firstname: user.firstname,
+        lastname: user.lastname,
+        password: user.password,
+      },
+    });
     return response;
   }
 }

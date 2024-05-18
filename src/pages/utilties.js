@@ -48,10 +48,13 @@ export const handleSignup =
     try {
       setLoadingFlag(true);
       const { data } = await api.signup(user, image);
-      setUser({ ...data,role:'student',code:'' });
-      localStorage.setItem("user", JSON.stringify({...data,role:'student'}));
+      setUser({ ...data, role: "student", code: "" });
+      localStorage.setItem(
+        "user",
+        JSON.stringify({ ...data, role: "student" })
+      );
       setLoadingFlag(false);
-      navigate("/");
+      navigate("/home");
     } catch (err) {
       console.log(err);
       setLoadingFlag(false);
@@ -84,21 +87,21 @@ export const handleLoginStudent =
     try {
       setLoadingFlag(true);
       const { data } = await api.loginStudent(user);
-      console.log(data)
+      console.log(data);
       const newUser = {
         id: data.id_stu,
         firstname: data.first_name_stu,
         lastname: data.last_name_stu,
-        password:data.password,
+        password: data.password,
         email: data.email_stu,
         imageUrl: data.image_url,
-        code:'',
-        role:'student'
+        code: "",
+        role: "student",
       };
       setUser(newUser);
-      localStorage.setItem('user',JSON.stringify(newUser))
+      localStorage.setItem("user", JSON.stringify(newUser));
       setLoadingFlag(false);
-      navigate("/");
+      navigate("/home");
     } catch (err) {
       console.log(err);
       setLoadingFlag(false);
@@ -130,20 +133,20 @@ export const handleLoginTeacher =
     try {
       setLoadingFlag(true);
       const { data } = await api.loginTeacher(user);
-      console.log(data)
+      console.log(data);
       const newUser = {
         id: data.id_teacher,
         firstname: data.first_name,
         lastname: data.last_name,
-        password:data.password,
+        password: data.password,
         email: data.email,
-        code:'',
-        role:'teacher'
+        code: "",
+        role: "teacher",
       };
       setUser(newUser);
-      localStorage.setItem('user',JSON.stringify(newUser))
+      localStorage.setItem("user", JSON.stringify(newUser));
       setLoadingFlag(false);
-      navigate("/");
+      navigate("/home");
     } catch (err) {
       console.log(err);
       setLoadingFlag(false);
@@ -157,7 +160,8 @@ export const handleLoginTeacher =
   };
 // handle cookies
 export const sendCode =
-  (code,navigate, setUser, setModalState, setLoadingFlag, setStep) => async (e) => {
+  (code, navigate, setUser, setModalState, setLoadingFlag, setStep) =>
+  async (e) => {
     try {
       if (!code)
         return setModalState({
@@ -173,26 +177,31 @@ export const sendCode =
         id: data.id_stu,
         firstname: data.first_name_stu,
         lastname: data.last_name_stu,
-        password:data.password,
+        password: data.password,
         email: data.email_stu,
         imageUrl: data.image_url,
-        code:'',
-        role:'student'
+        code: "",
+        role: "student",
       };
       setUser(newUser);
-      localStorage.setItem('user',JSON.stringify(newUser))
+      localStorage.setItem("user", JSON.stringify(newUser));
       setLoadingFlag(false);
       setStep(0);
       navigate("/reset-password");
     } catch (err) {
       console.log(err);
       setLoadingFlag(false);
-      setModalState({ message: "code is not correct !",hideFlag:false,status:400,errorFlag:true });
+      setModalState({
+        message: "code is not correct !",
+        hideFlag: false,
+        status: 400,
+        errorFlag: true,
+      });
     }
   };
 // handle cookies
 export const verifyEmail =
-  (setEmailVerifiedFlag, email,role, setModalState, setLoadingFlag, setStep) =>
+  (setEmailVerifiedFlag, email, role, setModalState, setLoadingFlag, setStep) =>
   async (e) => {
     e.preventDefault();
     if (!email)
@@ -204,7 +213,7 @@ export const verifyEmail =
       });
     try {
       setLoadingFlag(true);
-      const { data } = await api.verifyEmail(email,role);
+      const { data } = await api.verifyEmail(email, role);
       setLoadingFlag(false);
       setModalState({
         message: "email sent code you be sent to you immediately !",
@@ -227,18 +236,19 @@ export const verifyEmail =
   };
 // handle cookies
 export const handleResetPassword =
-  (password,role, setUser, navigate, setLoadingFlag, setModalState) => async (e) => {
+  (password, role, setUser, navigate, setLoadingFlag, setModalState) =>
+  async (e) => {
     try {
-      e.preventDefault()
-      console.log('adsa')
-      let user=JSON.parse(localStorage.getItem('user'))
+      e.preventDefault();
+      console.log("adsa");
+      let user = JSON.parse(localStorage.getItem("user"));
       if (!user.email || !user.password)
         return setModalState({
-      message: "you have to be registered first",
-      status: 400,
-      errorFlag: true,
-      hideFlag: false,
-    });
+          message: "you have to be registered first",
+          status: 400,
+          errorFlag: true,
+          hideFlag: false,
+        });
       if (!password)
         return setModalState({
           message: "write the new password",
@@ -249,11 +259,11 @@ export const handleResetPassword =
       setLoadingFlag(true);
       const { data } = await api.resetPassword(password);
       // handle cookies
-      let newUser=JSON.parse(localStorage.getItem('user'))
-      newUser.password=password
-      localStorage.setItem('user',JSON.stringify(newUser))
+      let newUser = JSON.parse(localStorage.getItem("user"));
+      newUser.password = password;
+      localStorage.setItem("user", JSON.stringify(newUser));
       setLoadingFlag(false);
-      navigate("/");
+      navigate("/home");
     } catch (err) {
       console.log(err);
       setModalState({
@@ -264,3 +274,24 @@ export const handleResetPassword =
       });
     }
   };
+export async function getRandomCourses(
+  setCourses,
+  setModalState,
+  setLoadingFlag
+) {
+  try {
+    setLoadingFlag(true);
+    const { data } = await api.getRandomCourses();
+    setLoadingFlag(false);
+    setCourses(data);
+    console.log(data)
+  } catch (err) {
+    setLoadingFlag(false);
+    setModalState({
+      message: "failed fetching the courses",
+      status: 400,
+      hideFlag: false,
+      errorFlag: true,
+    });
+  }
+}
