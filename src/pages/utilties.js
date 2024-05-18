@@ -83,8 +83,9 @@ export const handleLoginStudent =
       });
     try {
       setLoadingFlag(true);
-      const { data } = await api.login(user);
-      const user = {
+      const { data } = await api.loginStudent(user);
+      console.log(data)
+      const newUser = {
         id: data.id_stu,
         firstname: data.first_name_stu,
         lastname: data.last_name_stu,
@@ -94,10 +95,10 @@ export const handleLoginStudent =
         code:'',
         role:'student'
       };
-      setUser(user);
-      localStorage.setItem('user',JSON.stringify(user))
+      setUser(newUser);
+      localStorage.setItem('user',JSON.stringify(newUser))
       setLoadingFlag(false);
-      navigate("/student");
+      navigate("/");
     } catch (err) {
       console.log(err);
       setLoadingFlag(false);
@@ -128,9 +129,19 @@ export const handleLoginTeacher =
       });
     try {
       setLoadingFlag(true);
-      const { data } = await api.login(user);
-      setUser(data);
-      Cookies.setItem("user", data.user);
+      const { data } = await api.loginTeacher(user);
+      console.log(data)
+      const newUser = {
+        id: data.id_teacher,
+        firstname: data.first_name,
+        lastname: data.last_name,
+        password:data.password,
+        email: data.email,
+        code:'',
+        role:'teacher'
+      };
+      setUser(newUser);
+      localStorage.setItem('user',JSON.stringify(newUser))
       setLoadingFlag(false);
       navigate("/");
     } catch (err) {
@@ -146,7 +157,7 @@ export const handleLoginTeacher =
   };
 // handle cookies
 export const sendCode =
-  (code, setUser, setModalState, setLoadingFlag, setStep) => async (e) => {
+  (code,navigate, setUser, setModalState, setLoadingFlag, setStep) => async (e) => {
     try {
       if (!code)
         return setModalState({
@@ -157,39 +168,49 @@ export const sendCode =
         });
       e.preventDefault();
       setLoadingFlag(true);
-      const { data } = await api.sendCode(user.code);
-      setUser(data.user);
-      // Cookies.setItem('email',data.user.emai)
+      const { data } = await api.sendCode(code);
+      const newUser = {
+        id: data.id_stu,
+        firstname: data.first_name_stu,
+        lastname: data.last_name_stu,
+        password:data.password,
+        email: data.email_stu,
+        imageUrl: data.image_url,
+        code:'',
+        role:'student'
+      };
+      setUser(newUser);
+      localStorage.setItem('user',JSON.stringify(newUser))
       setLoadingFlag(false);
       setStep(0);
       navigate("/reset-password");
     } catch (err) {
       console.log(err);
       setLoadingFlag(false);
-      setModalState({ message: "code is not correct !" });
+      setModalState({ message: "code is not correct !",hideFlag:false,status:400,errorFlag:true });
     }
   };
 // handle cookies
-export const sendEmail =
-  (setEmailVerifiedFlag, email, setModalState, setLoadingFlag, setStep) =>
+export const verifyEmail =
+  (setEmailVerifiedFlag, email,role, setModalState, setLoadingFlag, setStep) =>
   async (e) => {
     e.preventDefault();
     if (!email)
       return setModalState({
-        message: "you need to fill out all the fields",
+        message: "you need to fill out the email field",
         status: 400,
         errorFlag: true,
         hideFlag: false,
       });
     try {
       setLoadingFlag(true);
-      const { data } = await api.sendEmail(email);
+      const { data } = await api.verifyEmail(email,role);
       setLoadingFlag(false);
       setModalState({
         message: "email sent code you be sent to you immediately !",
         status: 200,
         errorFlag: false,
-        hideFlag: true,
+        hideFlag: false,
       });
       setStep(1);
       setEmailVerifiedFlag(true);
@@ -206,15 +227,18 @@ export const sendEmail =
   };
 // handle cookies
 export const handleResetPassword =
-  (password, setUser, navigate, setLoadingFlag, setModalState) => async (e) => {
+  (password,role, setUser, navigate, setLoadingFlag, setModalState) => async (e) => {
     try {
-      if (!Cookies.getItem("email") || !Cookies.getItem("password"))
+      e.preventDefault()
+      console.log('adsa')
+      let user=JSON.parse(localStorage.getItem('user'))
+      if (!user.email || !user.password)
         return setModalState({
-          message: "you have to be registered first",
-          status: 400,
-          errorFlag: true,
-          hideFlag: false,
-        });
+      message: "you have to be registered first",
+      status: 400,
+      errorFlag: true,
+      hideFlag: false,
+    });
       if (!password)
         return setModalState({
           message: "write the new password",
@@ -224,12 +248,13 @@ export const handleResetPassword =
         });
       setLoadingFlag(true);
       const { data } = await api.resetPassword(password);
-      setUser(data.user);
       // handle cookies
-      Cookies.setItem("password", data.password);
+      let newUser=JSON.parse(localStorage.getItem('user'))
+      newUser.password=password
+      localStorage.setItem('user',JSON.stringify(newUser))
       setLoadingFlag(false);
       navigate("/");
-    } catch (error) {
+    } catch (err) {
       console.log(err);
       setModalState({
         message: "error resetting this password",

@@ -8,13 +8,16 @@ export default class api {
       `${api.url}/course_info?id_course=${id_course}`
     );
   }
-  static async resetPassword(password) {
+  static async resetPassword(password,role) {
+    const user = JSON.parse(localStorage.getItem("user"));
     const response = await axios.patch(
-      `${api.url}/student/reset-password`,
-      password,
+      `${api.url}/student/reset_password`,{password,role:user.role},
+
       {
-        email: Cookies.getItem("email"),
-        password: Cookies.getItem("password"),
+        headers: {
+          password: user.password,
+          email: user.email,
+        },
       }
     );
     return response;
@@ -32,7 +35,8 @@ export default class api {
     );
     return response;
   }
-  static async loginStudent({ email, passwrod }) {
+  static async loginStudent({ email, password }) {
+    console.log(password);
     const response = await axios.get(
       `${api.url}/student/reinsert?email=${email}`,
       {
@@ -40,6 +44,27 @@ export default class api {
           password,
         },
       }
+    );
+    return response;
+  }
+  static async loginTeacher({ email, password }) {
+    const response = await axios.get(`${api.url}/teacher/insert_teacher`, {
+      headers: {
+        email,
+        password,
+      },
+    });
+    return response;
+  }
+  static async verifyEmail(email, role) {
+    const response = await axios.get(
+      `${api.url}/student/send_code?email=${email}&role=${role}`
+    );
+    return response;
+  }
+  static async sendCode(code) {
+    const response = await axios.get(
+      `${api.url}/student/verify_code?code=${code}`
     );
     return response;
   }

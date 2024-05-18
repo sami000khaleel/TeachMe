@@ -62,6 +62,7 @@ const Signup = () => {
   />
 </label>
         <button
+        disabled={loadingFlag}
           onClick={handleSignup(user,image, setModalState, setLoadingFlag, setUser,navigate)}
           className="bg-primaryDark flex justify-center items-center  hover:bg-blue-700 text-white  font-bold py-2 px-4 rounded"
         >

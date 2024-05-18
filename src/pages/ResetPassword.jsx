@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState,useEffect } from "react";
 import ModalPopup from "../Components/ModalPopup/ModalPopup";
 import { Link, useOutlet, useOutletContext } from "react-router-dom";
 import { userDataChange, handleResetPassword } from "./utilties";
@@ -8,6 +8,7 @@ const ResetPassword = () => {
   const { modaState, setModalState, user, setUser } = useOutletContext();
   const [loadingFlag, setLoadingFlag] = useState(false);
   const navigate=useNavigate()
+  useEffect(()=>{setUser(pre=>({...pre,password:''}))},[])
   return (
     <article className="flex justify-center items-center w-full h-screen" >
 
@@ -23,7 +24,11 @@ const ResetPassword = () => {
           className="block w-full bg-primaryLightBackground    p-2 pl-3 font-bold dark:text-black"
         />
         <button
-          onClick={handleResetPassword(user, setModalState, setLoadingFlag, setUser,navigate)}
+        disabled={loadingFlag}
+          onClick={handleResetPassword
+            (user.password,user.role, setUser, navigate, setLoadingFlag, setModalState) 
+
+          }
           className="bg-primaryDark flex justify-center items-center  hover:bg-blue-700 text-white  font-bold py-2 px-4 rounded"
         >
           {loadingFlag?<LoadingSpinner/>:'reset'}

@@ -8,6 +8,7 @@ const Login = () => {
   const { modaState, setModalState, user, setUser } = useOutletContext();
   const [loadingFlag, setLoadingFlag] = useState(false);
   const navigate=useNavigate()
+  console.log(user)
   return (
     <article className="flex justify-center items-center w-full h-screen" >
 
@@ -22,6 +23,7 @@ const Login = () => {
         <input
   type="checkbox"
   id="role"
+  checked={user?.role=='teacher'?true:false}
   name="role"
   value="teacher"
   onChange={(e) => {
@@ -53,7 +55,8 @@ const Login = () => {
           className="block w-full bg-primaryLightBackground    p-2 pl-3 font-bold dark:text-black"
         />
         <button
-          onClick={user.role==='student'?handleLoginStudent(user, setModalState, setLoadingFlag, setUser,navigate):handleLoginTeacher()}
+        disabled={loadingFlag}
+          onClick={user.role==='student'?handleLoginStudent(user, setModalState, setLoadingFlag, setUser,navigate):handleLoginTeacher(user, setModalState, setLoadingFlag, setUser, navigate)}
           className="bg-primaryDark flex justify-center items-center  hover:bg-blue-700 text-white  font-bold py-2 px-4 rounded"
         >
           {loadingFlag?<LoadingSpinner/>:'Log in'}
