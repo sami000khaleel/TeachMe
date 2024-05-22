@@ -26,7 +26,7 @@ const DrawerMenu = ({user,modalState,setModalState,setCourses,theme,setDrawerMen
             </Link>
           ) : (
             <Link to={`/user/${user.id}`} >
-            <User color="black" cursor={"pointer"} />
+            <User color={`${theme==='dark'?"white":'black'}`} cursor={"pointer"} />
             </Link>
           )}
         </li>

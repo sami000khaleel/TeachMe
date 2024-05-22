@@ -32,7 +32,7 @@ const Navbar = ({ theme,setTheme,user, modalState, setModalState, setCourses }) 
             </Link>
           ) : (
             <Link to={`/user/${user.id}`} >
-            <User color="black" cursor={"pointer"} />
+            <User color={`${theme==='dark'?"white":'black'}`} cursor={"pointer"} />
             </Link>
           )}
           <SearchForm

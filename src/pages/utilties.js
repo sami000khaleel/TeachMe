@@ -86,8 +86,9 @@ export const handleLoginStudent =
       });
     try {
       setLoadingFlag(true);
-      const { data } = await api.loginStudent(user);
-      console.log(data);
+      const response = await api.loginStudent(user);
+      console.log(response);
+      const { data } = response;
       const newUser = {
         id: data.id_stu,
         firstname: data.first_name_stu,
@@ -101,9 +102,10 @@ export const handleLoginStudent =
       setUser(newUser);
       localStorage.setItem("user", JSON.stringify(newUser));
       setLoadingFlag(false);
+      console.log(data);
       navigate("/home");
     } catch (err) {
-      console.log(err);
+      console.log(err, "aaaa");
       setLoadingFlag(false);
       setModalState({
         message: "one or both of the fields are wrong",
@@ -284,7 +286,7 @@ export async function getRandomCourses(
     const { data } = await api.getRandomCourses();
     setLoadingFlag(false);
     setCourses(data);
-    console.log(data)
+    console.log(data);
   } catch (err) {
     setLoadingFlag(false);
     setModalState({
@@ -295,3 +297,55 @@ export async function getRandomCourses(
     });
   }
 }
+export async function checkStudentIsEnrolled(
+  studentId,
+  setModalState,
+  setLoadingFlag,
+  setStudentIsEnrolledFlag,
+  courseId
+) {
+  try {
+    setLoadingFlag(true);
+    const { data } = await api.getStudentCourses(studentId);
+    setLoadingFlag(false);
+    if (!data.length) return setStudentIsEnrolledFlag(false);
+    const ids = data.map((course) => course.id_cours);
+    for (let id of ids)
+{      
+  if (courseId == id) return setStudentIsEnrolledFlag(true);
+}
+    setStudentIsEnrolledFlag(false);
+  } catch (err) {
+    console.log(err);
+
+    setLoadingFlag(false);
+    if (err.response.data.message == "ids do not match") {
+      return setStudentIsEnrolledFlag(false);
+    }
+    setModalState({
+      message: "failed fetching the courses",
+      status: 400,
+      hideFlag: false,
+      errorFlag: true,
+    });
+  }
+}
+export async function getCourseInfo(courseId,setLoadingFlag,setCourse,setModalState)
+  {
+    try {
+      setLoadingFlag(true)
+      const response=await api.getCourseInfo(courseId)
+      const {data}=response
+      setCourse(data[0])
+      setLoadingFlag(false)
+
+    } catch (error) {
+      console.log(error)
+      setLoadingFlag(false)
+      return setModalState({
+        message:'failed fething the course',
+        code:404,
+        errorFlag:true,hideFlag:false
+      })
+    }
+  }

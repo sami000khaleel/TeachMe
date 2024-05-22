@@ -40,7 +40,7 @@ const Signup = () => {
           placeholder="Type in your email"
           name="email"
           id="email"
-          className="block w-full bg-primaryLightBackground    p-2 pl-3 font-bold dark:text-black"
+          className=" block w-full bg-primaryLightBackground    p-2 pl-3 font-bold dark:text-black"
         />
         <input
           type="password"

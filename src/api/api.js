@@ -80,4 +80,26 @@ export default class api {
     });
     return response;
   }
+  static async getStudentCourses(studentId) {
+    const user = JSON.parse(localStorage.getItem("user"));
+    const response = await axios.get(
+      `${api.url}/student/get_my_courses?id=${user.id}`,
+      {
+        headers: {
+          email: user.email,
+          password: user.password,
+        },
+      }
+    );
+    return response;
+  }
+
+  static async getCourseInfo(courseId) {
+    const user = JSON.parse(localStorage.getItem("user"));
+    const response = await axios.get(
+      `${api.url}/student/course_info?id_course=${courseId}`
+    );
+
+    return response;
+  }
 }
