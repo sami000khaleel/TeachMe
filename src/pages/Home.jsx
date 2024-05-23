@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { getRandomCourses } from "./utilties";
+import { getRandomCourses } from "./utilities";
 import Courses from "../Components/Courses/Courses";
 import { useOutletContext } from "react-router-dom";
 import ModalPopup from "../Components/ModalPopup/ModalPopup";
@@ -7,9 +7,8 @@ import { useNavigate } from "react-router-dom";
 import LoadingSpinner from "../Components/LoadingSpinner/LoadingSpinner";
 const Home = () => {
     const navigate=useNavigate()
-  const { setModalState, modalState } = useOutletContext();
+  const { setModalState, modalState,courses,setCourses } = useOutletContext();
   const [loadingFlag, setLoadingFlag] = useState(false);
-  const [courses, setCourses] = useState([]);
   useEffect(() => {
     getRandomCourses(setCourses, setModalState, setLoadingFlag);
   }, []);

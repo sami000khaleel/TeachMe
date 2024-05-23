@@ -201,6 +201,27 @@ export const sendCode =
       });
     }
   };
+export const enrollStudent =
+(courseId,setModalState,setLoadingFlag,navigate,setStudentIsEnrolledFlag) =>
+  async (e) => {
+    try {
+      e.preventDefault();
+      setLoadingFlag(true);
+       await api.enrollStudent(courseId);
+       setStudentIsEnrolledFlag(true)
+      setLoadingFlag(false);
+      // navigate("/home");
+    } catch (err) {
+      console.log(err);
+      setLoadingFlag(false);
+      setModalState({
+        message: "error adding the student to the course !",
+        hideFlag: false,
+        status: 400,
+        errorFlag: true,
+      });
+    }
+  };
 // handle cookies
 export const verifyEmail =
   (setEmailVerifiedFlag, email, role, setModalState, setLoadingFlag, setStep) =>
@@ -308,8 +329,10 @@ export async function checkStudentIsEnrolled(
     setLoadingFlag(true);
     const { data } = await api.getStudentCourses(studentId);
     setLoadingFlag(false);
+    console.log(data)
     if (!data.length) return setStudentIsEnrolledFlag(false);
     const ids = data.map((course) => course.id_cours);
+    console.log(ids)
     for (let id of ids)
 {      
   if (courseId == id) return setStudentIsEnrolledFlag(true);

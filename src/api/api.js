@@ -102,4 +102,26 @@ export default class api {
 
     return response;
   }
+  static async enrollStudent(courseId) {
+    const user = JSON.parse(localStorage.getItem("user"));
+    const response = await axios.post(
+      `${api.url}/student/login_course`,
+      {
+        id_course: courseId,
+        id_student: user.id,
+      },
+      {
+        headers: {
+          password: user.password,
+          email: user.email,
+        },
+      }
+    );
+console.log(response)
+    return response;
+  }
+static async searchCourses(query){
+  const response=await axios.get(`${api.url}/student/searchcourse_bycoursename?course_name=${query}`)
+  return response
+}
 }
