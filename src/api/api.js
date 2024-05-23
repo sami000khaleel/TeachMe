@@ -117,11 +117,30 @@ export default class api {
         },
       }
     );
-console.log(response)
+    console.log(response);
     return response;
   }
-static async searchCourses(query){
-  const response=await axios.get(`${api.url}/student/searchcourse_bycoursename?course_name=${query}`)
-  return response
-}
+  static async searchCourses(query) {
+    const response = await axios.get(
+      `${api.url}/student/searchcourse_bycoursename?course_name=${query}`
+    );
+    return response;
+  }
+  static async teacherAddCourse(
+    course_name,
+    course_description,
+    first_course,
+    end_course,
+    date1,
+    date2
+  ) {
+    const user = JSON.parse(localStorage.getItem("user"));
+    const response = await axios.post(`${api.url}/api/teacher/add_course`, {
+      headers: {
+        email: user?.email,
+        password: user?.password,
+      },
+    });
+    return response
+  }
 }

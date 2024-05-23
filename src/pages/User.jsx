@@ -10,7 +10,7 @@ useEffect(()=>{
   console.log('a')
 },[])  
 return (
-    <section id='uesrs page' className='w-full h-full dark:bg-black' >
+    <section id='uesrs page' className='w-full   h-full ' >
       <CourseForm/>
     </section>
   )
