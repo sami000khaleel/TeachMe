@@ -202,13 +202,19 @@ export const sendCode =
     }
   };
 export const enrollStudent =
-(courseId,setModalState,setLoadingFlag,navigate,setStudentIsEnrolledFlag) =>
+  (
+    courseId,
+    setModalState,
+    setLoadingFlag,
+    navigate,
+    setStudentIsEnrolledFlag
+  ) =>
   async (e) => {
     try {
       e.preventDefault();
       setLoadingFlag(true);
-       await api.enrollStudent(courseId);
-       setStudentIsEnrolledFlag(true)
+      await api.enrollStudent(courseId);
+      setStudentIsEnrolledFlag(true);
       setLoadingFlag(false);
       // navigate("/home");
     } catch (err) {
@@ -329,14 +335,13 @@ export async function checkStudentIsEnrolled(
     setLoadingFlag(true);
     const { data } = await api.getStudentCourses(studentId);
     setLoadingFlag(false);
-    console.log(data)
+    console.log(data);
     if (!data.length) return setStudentIsEnrolledFlag(false);
     const ids = data.map((course) => course.id_cours);
-    console.log(ids)
-    for (let id of ids)
-{      
-  if (courseId == id) return setStudentIsEnrolledFlag(true);
-}
+    console.log(ids);
+    for (let id of ids) {
+      if (courseId == id) return setStudentIsEnrolledFlag(true);
+    }
     setStudentIsEnrolledFlag(false);
   } catch (err) {
     console.log(err);
@@ -353,22 +358,152 @@ export async function checkStudentIsEnrolled(
     });
   }
 }
-export async function getCourseInfo(courseId,setLoadingFlag,setCourse,setModalState)
-  {
-    try {
-      setLoadingFlag(true)
-      const response=await api.getCourseInfo(courseId)
-      const {data}=response
-      setCourse(data[0])
-      setLoadingFlag(false)
-
-    } catch (error) {
-      console.log(error)
-      setLoadingFlag(false)
-      return setModalState({
-        message:'failed fething the course',
-        code:404,
-        errorFlag:true,hideFlag:false
-      })
-    }
+export async function getCourseInfo(
+  courseId,
+  setLoadingFlag,
+  setCourse,
+  setModalState
+) {
+  try {
+    setLoadingFlag(true);
+    const response = await api.getCourseInfo(courseId);
+    const { data } = response;
+    setCourse(data[0]);
+    setLoadingFlag(false);
+  } catch (error) {
+    console.log(error);
+    setLoadingFlag(false);
+    return setModalState({
+      message: "failed fething the course",
+      code: 404,
+      errorFlag: true,
+      hideFlag: false,
+    });
   }
+}
+export async function getTeachersCourses(
+  setTeachersCourses,
+  setModalState,
+  setLoadingFlag
+) {
+  try {
+    setLoadingFlag(true);
+    const { data } = await api.getTeachersCourses();
+    setTeachersCourses(data.courses);
+    setLoadingFlag(false);
+  } catch (error) {
+    setLoadingFlag(false);
+    setModalState({
+      message: "failed fetching the teachers courses",
+      status: 400,
+      errorFlag: true,
+      hideFlag: false,
+    });
+  }
+}
+export async function fetchTeachersCourseDetails(
+  courseId,
+  setLoadingFlag,
+  setModalState,
+  setStudents,
+  setCourse,
+  setTeacherGivesCourseFlag
+) {
+  try {
+    setLoadingFlag(true);
+    const { data } = await api.getTeachersCourseInfo(courseId);
+    setLoadingFlag(false);
+    setStudents(data.students);
+    setCourse(data.course[0]);
+    setTeacherGivesCourseFlag(true);
+  } catch (err) {
+    console.log(err);
+    setLoadingFlag(false);
+    setTeacherGivesCourseFlag(false);
+  }
+}
+export function giveCourseAction(
+  teacherGivesCourseFlag,
+  setStudentIsEnrolledFlag,
+  user,
+  timeFlag, //bool tells wether it is time for the lecture or not
+  navigate,
+  courseId
+) {
+  console.log(timeFlag,'a')
+  if (user.role == "student") {
+    if (timeFlag)
+      return (
+        <button
+          onClick={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            navigate(`/room/${courseId}`);
+          }}
+          className=" text-white bg-primaryDark w-full mx-auto py-2 rounded-xl hover:bg-primarylightText font-bold text"
+        >
+          Attend Lesson
+        </button>
+      );
+    return (
+      <h1 className="text-primaryDark font-bold text">
+        return at the lessons time
+      </h1>
+    );
+  }
+  if (user.role == "teacher") {
+    if (timeFlag)
+      return (
+        <button
+          onClick={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            navigate(`/room/${courseId}`);
+          }}
+          className=" text-white bg-primaryDark w-full mx-auto py-2 rounded-xl hover:bg-primarylightText font-bold text"
+        >
+          start giving the lecture
+        </button>
+      );
+    return (
+      <h1 className="text-primaryDark font-bold text">
+        you can give the only at the specified dates.
+      </h1>
+    );
+  }
+}
+export function checkTime(date1, date2) {
+  const parseDate = (dateStr) => {
+    const [day, time, period] = dateStr.split(" ");
+    const [hours, minutes] = time.split(":").map(Number);
+
+    let dayNumber = [
+      "Sunday",
+      "Monday",
+      "Tuesday",
+      "Wednesday",
+      "Thursday",
+      "Friday",
+      "Saturday",
+    ].indexOf(day);
+    let date = new Date();
+    date.setDate(date.getDate() + ((dayNumber + 7 - date.getDay()) % 7)); // Set to the correct day of the week
+
+    let hour = period === "PM" ? (hours % 12) + 12 : hours % 12;
+    date.setHours(hour, minutes, 0, 0); // Set the time
+    return date;
+  };
+
+  const isWithin15Minutes = (targetDate) => {
+    const now = new Date();
+    const fifteenMinutesBefore = new Date(
+      targetDate.getTime() - 15 * 60 * 1000
+    );
+    return now >= fifteenMinutesBefore && now <= targetDate;
+  };
+
+  const dateObj1 = parseDate(date1);
+  const dateObj2 = parseDate(date2);
+
+  return isWithin15Minutes(dateObj1) || isWithin15Minutes(dateObj2);
+}

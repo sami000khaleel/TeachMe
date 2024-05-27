@@ -128,19 +128,64 @@ export default class api {
   }
   static async teacherAddCourse(
     course_name,
-    course_description,
+    course_discription,
     first_course,
     end_course,
     date1,
     date2
   ) {
+    console.log(date1);
     const user = JSON.parse(localStorage.getItem("user"));
-    const response = await axios.post(`${api.url}/api/teacher/add_course`, {
-      headers: {
-        email: user?.email,
-        password: user?.password,
+
+    const response = await axios.post(
+      `${api.url}/teacher/add_course`,
+      {
+        course_name,
+        course_discription,
+        first_course,
+        end_course,
+        date1,
+        date2,
       },
-    });
+      {
+        headers: {
+          email: user.email,
+          password: user.password,
+        },
+      }
+    );
+    console.log(response);
+    return response;
+  }
+  static async getTeachersCourses() {
+    const user = JSON.parse(localStorage.getItem("user"));
+    const response = await axios.get(
+      `${api.url}/teacher/get_courses?id_teacher=${user.id}`,
+      {
+        headers: {
+          email: user.email,
+          password: user.password,
+        },
+      }
+    );
+    return response;
+  }
+  static async getTeachersCourseInfo(courseId) {
+    const user = JSON.parse(localStorage.getItem("user"));
+
+    const response = await axios.get(
+      `${api.url}/teacher/get-course-info?id=${user.id}&course_id=${courseId}`,
+      {
+        headers: {
+          email: user.email,
+          password: user.password,
+        },
+      }
+    );
+    return response;
+  }
+  static async getStudentImage(imageUrl){
+    const response=await axios.get(imageUrl)
     return response
   }
 }

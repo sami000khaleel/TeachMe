@@ -41,3 +41,10 @@ export function handleThemeInit(setTheme) {
         }
     }
     }
+    export function dateTrimmer(date) {
+    
+        if(!date)
+            return date
+        if (date.includes("T")) return date.split("T")[0];
+            return date;
+      }

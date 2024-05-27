@@ -8,6 +8,8 @@ import Navbar from "./Components/Navbar/Navbar";
 const App = () => {
   const location = useLocation();
   const navigate = useNavigate();
+  const [students, setStudents] = useState([]);
+  const [course, setCourse] = useState({});
   const [modalState, setModalState] = useState({
     message: "",
     status: "",
@@ -16,9 +18,8 @@ const App = () => {
   });
   const [theme, setTheme] = useState("");
   const [user, setUser] = useState(() => {
-    const user=JSON.parse(localStorage.getItem('user'))
-    if(user?.id)
-        return user
+    const user = JSON.parse(localStorage.getItem("user"));
+    if (user?.id) return user;
     return {
       id: "",
       firstname: "",
@@ -57,6 +58,10 @@ const App = () => {
           setUser,
           courses,
           setCourses,
+          course,
+          setCourse,
+          students,
+          setStudents,
         }}
       />
     </main>

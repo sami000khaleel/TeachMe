@@ -9,22 +9,21 @@ const ResetPassword = () => {
   const navigate = useNavigate();
 
   useEffect(() => {
-    setUser((prev) => ({ ...prev, password: '' }));
+    setUser((prev) => ({ ...prev, password: "" }));
   }, []);
 
   return (
     <article className="flex justify-center items-center w-full h-screen">
-      <form
-        className="mx-4 flex flex-col gap-5 shadow-xl w-full max-w-md p-8 bg-white dark:bg-black rounded-xl"
-        onSubmit={(e) => {
-          e.preventDefault();
-          handleResetPassword(user.password, user.role, setUser, navigate, setLoadingFlag, setModalState);
-        }}
-      >
-        <h2 className="text-3xl font-bold mb-4 text-gray-800 dark:text-gray-200">Reset your password</h2>
+      <form className="mx-4 flex flex-col gap-5 shadow-xl w-full max-w-md p-8 bg-white dark:bg-black rounded-xl">
+        <h2 className="text-3xl font-bold mb-4 text-gray-800 dark:text-gray-200">
+          Reset your password
+        </h2>
 
         <div className="mb-4">
-          <label htmlFor="password" className="block text-gray-700 text-sm font-bold mb-2 dark:text-gray-300">
+          <label
+            htmlFor="password"
+            className="block text-gray-700 text-sm font-bold mb-2 dark:text-gray-300"
+          >
             New Password
           </label>
           <input
@@ -39,11 +38,18 @@ const ResetPassword = () => {
         </div>
 
         <button
-          type="submit"
+          onClick={handleResetPassword(
+            user.password,
+            user.role,
+            setUser,
+            navigate,
+            setLoadingFlag,
+            setModalState
+          )}
           disabled={loadingFlag}
           className="bg-primaryDark flex justify-center items-center hover:bg-blue-700 text-white font-bold py-2 px-4 rounded"
         >
-          {loadingFlag ? <LoadingSpinner /> : 'Reset'}
+          {loadingFlag ? <LoadingSpinner /> : "Reset"}
         </button>
       </form>
     </article>

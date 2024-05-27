@@ -13,12 +13,7 @@ const Login = () => {
     <div className="flex justify-center items-center min-h-screen ">
       <form
         className="mx-4 flex flex-col gap-5 shadow-xl w-full max-w-md p-8 bg-white dark:bg-black rounded-xl"
-        onSubmit={(e) => {
-          e.preventDefault();
-          user.role === 'student'
-            ? handleLoginStudent(user, setModalState, setLoadingFlag, setUser, navigate)
-            : handleLoginTeacher(user, setModalState, setLoadingFlag, setUser, navigate);
-        }}
+         
       >
         <h2 className="text-3xl font-bold mb-6 text-gray-800 dark:text-gray-200">Log in</h2>
 
@@ -70,7 +65,9 @@ const Login = () => {
         </div>
 
         <button
-          type="submit"
+          onClick={ user.role === 'student'
+          ? handleLoginStudent(user, setModalState, setLoadingFlag, setUser, navigate)
+          : handleLoginTeacher(user, setModalState, setLoadingFlag, setUser, navigate)}
           disabled={loadingFlag}
           className="bg-primaryDark flex justify-center items-center hover:bg-blue-700 text-white font-bold py-2 px-4 rounded"
         >

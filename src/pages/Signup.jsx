@@ -9,17 +9,13 @@ const Signup = () => {
   const [loadingFlag, setLoadingFlag] = useState(false);
   const [image, setImage] = useState(null);
   const navigate = useNavigate();
-
   return (
     // <div className="w-full h-full mx-auto">
 
     <div className="flex justify-center items-center min-h-screen mx-auto ">
       <form
         className="mx-4 flex flex-col justify-between  items-center gap-4 shadow-xl w-full max-w-[600px] min-w-[320px] p-8 bg-white dark:bg-black rounded-xl"
-        onSubmit={(e) => {
-          e.preventDefault();
-          handleSignup(user, image, setModalState, setLoadingFlag, setUser, navigate);
-        }}
+        
       >
         <h2 className="text-3xl font-bold mb-6 text-gray-800 dark:text-gray-200">Sign up</h2>
         <div className="flex sm:flex-row flex-col justify-between gap-5   items-start">
@@ -106,8 +102,8 @@ const Signup = () => {
         </div>
 
         <button
-          type="submit"
-          disabled={loadingFlag}
+  onClick={handleSignup(user, image, setModalState, setLoadingFlag, setUser, navigate)}
+disabled={loadingFlag}
           className="bg-primaryDark flex justify-center items-center hover:bg-blue-700 text-white font-bold py-2 px-4 rounded"
         >
           {loadingFlag ? <LoadingSpinner /> : 'Submit'}
