@@ -11,11 +11,8 @@ import {
 } from "./utilities.jsx";
 import { dateTrimmer } from "../App";
 import LoadingSpinner from "../Components/LoadingSpinner/LoadingSpinner";
-const Course = () => {
-  function isItTime() {
-    return true;
-  }
 
+const Course = () => {
   const { courseId } = useParams();
   const [teacherGivesCourseFlag, setTeacherGivesCourseFlag] = useState(false);
   const navigate = useNavigate();
@@ -42,6 +39,7 @@ const Course = () => {
         setStudentIsEnrolledFlag,
         courseId
       );
+      getCourseInfo(courseId, setLoadingFlag, setCourse, setModalState);
     } else {
       setStudentIsEnrolledFlag(false);
       fetchTeachersCourseDetails(
@@ -56,7 +54,7 @@ const Course = () => {
   }, [courseId]);
 
   return (
-    <section className="flex flex-col justify-center items-center min-h-screen w-full ">
+    <section className="flex flex-col justify-center items-center min-h-screen w-full">
       {course?.id_cours ? (
         <div
           className="max-w-[600px] flex justify-between flex-col p-4 border m-6 rounded-lg bg-white border-primaryDark dark:bg-black w-full"
@@ -85,7 +83,7 @@ const Course = () => {
             <h1 className="text-gray-500">{course.date2}</h1>
           </article>
 
-          {(new Date(course.first_cours) > new Date()) ? (
+          {!(new Date(course.first_cours) > new Date()) ? (
             giveCourseAction(
               teacherGivesCourseFlag,
               setStudentIsEnrolledFlag,
@@ -94,12 +92,48 @@ const Course = () => {
               navigate,
               courseId
             )
+          ) : user.role == "teacher" || studentIsEnrolledFlag ? (
+            <h2 className="text-primaryDark font-bold text-xl my-4">
+              course has not begun yet
+            </h2>
           ) : (
-            <h2 className=" text-primaryDark font-bold text-xl my-4 " >course has not begun yet</h2>
+            <button
+              onClick={() =>
+                enrollStudent(
+                  courseId,
+                  setModalState,
+                  setLoadingFlag,
+                  navigate,
+                  setStudentIsEnrolledFlag
+                )
+              }
+              className="text-white bg-primaryDark rounded-lg py-2 hover:bg-primaryDarkBackground text-xl"
+            >
+              enroll
+            </button>
           )}
         </div>
       ) : (
         <div className="flex justify-between flex-col p-4 border m-6 rounded-lg bg-white border-primaryDark dark:bg-black w-full"></div>
+      )}
+
+      {user.role === 'teacher' && teacherGivesCourseFlag && (
+        <article id='students-in-the-course' className="max-w-[600px] p-4 border m-6 rounded-lg bg-white border-primaryDark dark:bg-black w-full">
+          <h1 className="dark:text-white font-bold text-2xl text-black mb-4">Students in the course:</h1>
+          {students.map((student) => (
+            <div key={student.id_stu} className="flex items-center my-2 p-2 border rounded-lg bg-gray-100 dark:bg-gray-800 w-full">
+              <img
+                src={student.image_url}
+                alt={`${student.first_name_stu} ${student.last_name_stu}`}
+                className="w-12 h-12 rounded-full mr-4"
+              />
+              <div>
+                <h2 className="text-lg font-bold text-black dark:text-white">{student.first_name_stu} {student.last_name_stu}</h2>
+                <p className="text-gray-500 dark:text-gray-400">{student.email_stu}</p>
+              </div>
+            </div>
+          ))}
+        </article>
       )}
     </section>
   );

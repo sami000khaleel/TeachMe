@@ -216,6 +216,12 @@ export const enrollStudent =
       await api.enrollStudent(courseId);
       setStudentIsEnrolledFlag(true);
       setLoadingFlag(false);
+      setModalState({
+        message:'you have been enrolled to this course successfuly!',
+        status:200,
+        errorFlag:false,
+        hideFlag:false
+      })
       // navigate("/home");
     } catch (err) {
       console.log(err);
@@ -413,6 +419,7 @@ export async function fetchTeachersCourseDetails(
     setLoadingFlag(true);
     const { data } = await api.getTeachersCourseInfo(courseId);
     setLoadingFlag(false);
+    console.log(data)
     setStudents(data.students);
     setCourse(data.course[0]);
     setTeacherGivesCourseFlag(true);
@@ -430,7 +437,7 @@ export function giveCourseAction(
   navigate,
   courseId
 ) {
-  console.log(timeFlag,'a')
+  console.log(timeFlag, "a");
   if (user.role == "student") {
     if (timeFlag)
       return (
@@ -506,4 +513,26 @@ export function checkTime(date1, date2) {
   const dateObj2 = parseDate(date2);
 
   return isWithin15Minutes(dateObj1) || isWithin15Minutes(dateObj2);
+}
+export async function getStudentCourses(
+  studentId,
+  setLoadingFlag,
+  setStudentCourses,
+  setModalState
+) {
+  try {
+    setLoadingFlag(true);
+    const { data } = await api.getStudentCourses(studentId);
+    setLoadingFlag(false);
+    console.log(data);
+    setStudentCourses(data);
+  } catch (error) {
+    console.log(err);
+    setModalState({
+      message: "failed fetching the students courses",
+      status: 500,
+      errorFlag: true,
+      hideFlag: false,
+    });
+  }
 }

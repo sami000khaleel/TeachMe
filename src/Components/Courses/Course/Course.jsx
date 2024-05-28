@@ -1,19 +1,47 @@
-import React from "react";
+import React,{useState} from "react";
 import { useNavigate } from "react-router-dom";
-import {dateTrimmer} from '../../../App'
-const Course = ({ course }) => {
-
- 
-
+import { dateTrimmer } from "../../../App";
+import { Settings, Delete, Trash } from "lucide-react";
+import {handleDeleteCourse} from '../../../App'
+import { useOutletContext } from "react-router-dom";
+const Course = ({ course, teachersCourseFlag,setUpdateMode ,setSelectedCourse}) => {
+  const [loadingFlag, setLoadingFlag] = useState(false);
+  const [deletedFlag, setDeletedFlag] = useState(false);
+  const {setModalState}=useOutletContext()
   const navigate = useNavigate();
 
   return (
     <>
       {course?.id_cours ? (
         <div
-          className="flex justify-between flex-col p-4 border m-6 rounded-lg bg-white border-primaryDark dark:bg-black w-full"
+          className={`relative flex justify-between flex-col p-4 border m-6 rounded-lg bg-white border-primaryDark dark:bg-black w-full ${
+            deletedFlag ? "hidden" : ""
+          }`}
           key={course.id_cours}
         >
+          {new Date(course.first_cours) > new Date()&&teachersCourseFlag ? (
+            <article className="flex gap-3 absolute right-5" id="actions">
+              <a href="#form">
+                <Settings onClick={
+                  (e)=>{
+                    e.preventDefault()
+                    e.stopPropagation()
+                    setSelectedCourse(course)
+                    setUpdateMode(true)
+                  }
+                } />
+              </a>
+              <Trash
+                onClick={handleDeleteCourse(
+                  course,
+                  setLoadingFlag,
+                  setDeletedFlag,
+                  setModalState
+                )}
+                cursor={"pointer"}
+              />
+            </article>
+          ) : null}
           <h1 className="text-xl font-bold mb-2">{course.cours_name}</h1>
           <h1>{course.cours_discription}</h1>
           <article className="my-3" id="deadlines">

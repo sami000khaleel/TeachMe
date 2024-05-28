@@ -1,9 +1,9 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
 import { useOutletContext } from "react-router-dom";
 import api from "../../api/api";
-
+import { updateCourse } from "../../App";
 const daysOfWeek = [
   "Monday",
   "Tuesday",
@@ -26,7 +26,13 @@ const formatHours = () => {
 
 const hours = formatHours();
 
-function CourseForm({setTeachersCourses}) {
+function CourseForm({
+  setTeachersCourses,
+  selectedCourse,
+  setSelectedCourse,
+  updateMode,
+  setUpdateMode,
+}) {
   const [course, setCourse] = useState({});
   const { modalState, setModalState, setCourses, courses } = useOutletContext();
   const [loadingFlag, setLoadingFlag] = useState(false);
@@ -38,7 +44,27 @@ function CourseForm({setTeachersCourses}) {
     date1: { day: "", time: "" },
     date2: { day: "", time: "" },
   });
-
+  useEffect(() => {
+    if (!updateMode) return;
+    if (!selectedCourse?.id_cours) return;
+    let date1 = selectedCourse.date1.split(" ");
+    let date2 = selectedCourse.date2.split(" ");
+    console.log(date1)
+    let user = JSON.parse(localStorage.getItem("user"));
+    let obj = {};
+    obj.date1 = { day: date1[0], time: date1[1] + " " + date1[2] };
+    obj.date2 = { day: date2[0], time: date2[1] + " " + date2[2] };
+    console.log(obj);
+    obj.course_name = selectedCourse.cours_name;
+    obj.first_course = selectedCourse.first_cours;
+    obj.end_course = selectedCourse.end_cours;
+    obj.course_description = selectedCourse.cours_discription;
+    obj.id_course = selectedCourse.id_cours;
+    obj.id_teacher = user;
+    setFormData(obj);
+  }, [updateMode]);
+  console.log(formData)
+  // console.log(selectedCourse)
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (
@@ -66,7 +92,10 @@ function CourseForm({setTeachersCourses}) {
           .toISOString()
           .slice(0, 19)
           .replace("T", " "),
-        new Date(formData.end_course).toISOString().slice(0, 19).replace("T", " "),
+        new Date(formData.end_course)
+          .toISOString()
+          .slice(0, 19)
+          .replace("T", " "),
         formData.date1.day + " " + formData.date1.time,
         formData.date2.day + " " + formData.date2.time
       );
@@ -76,8 +105,13 @@ function CourseForm({setTeachersCourses}) {
         first_cours: new Date(formData.first_course)
           .toISOString()
           .slice(0, 19)
-          .replace("T", " ").split(' ')[0],
-        end_cours: new Date(formData.end_course).toISOString().slice(0, 19).replace("T", " ").split(' ')[0],
+          .replace("T", " ")
+          .split(" ")[0],
+        end_cours: new Date(formData.end_course)
+          .toISOString()
+          .slice(0, 19)
+          .replace("T", " ")
+          .split(" ")[0],
         date1: formData.date1.day + " " + formData.date1.time,
         date2: formData.date2.day + " " + formData.date2.time,
       };
@@ -91,9 +125,9 @@ function CourseForm({setTeachersCourses}) {
       });
       obj.id_cours = data;
       setCourses((pre) => [...pre, obj]);
-      setTeachersCourses((pre) => [...pre, obj])
+      setTeachersCourses((pre) => [...pre, obj]);
     } catch (err) {
-      console.log(err, 'hello');
+      console.log(err, "hello");
       setLoadingFlag(false);
       setModalState({
         message: "error posting the course",
@@ -155,7 +189,9 @@ function CourseForm({setTeachersCourses}) {
         className="bg-white p-7 pt-1 rounded shadow-md mt-[80px] w-full dark:bg-black max-w-lg"
         onSubmit={handleSubmit}
       >
-        <h1 className="text-2xl font-bold mb-6">Create a Course</h1>
+        <h1 className="text-2xl font-bold mb-6">
+          {updateMode ? "update the course" : "Create a Course"}
+        </h1>
         <div className="mb-4">
           <label
             className="block text-gray-800 dark:text-gray-300 text-sm font-bold mb-2"
@@ -305,12 +341,27 @@ function CourseForm({setTeachersCourses}) {
             </select>
           </div>
         </div>
-        <button
-          type="submit"
-          className="w-full bg-blue-500 text-white py-2 px-4 rounded-md hover:bg-blue-600 transition duration-300"
-        >
-          Submit
-        </button>
+        {!updateMode ? (
+          <button
+            type="submit"
+            className="w-full bg-blue-500 text-white py-2 px-4 rounded-md hover:bg-blue-600 transition duration-300"
+          >
+            Submit
+          </button>
+        ) : (
+          <button
+            onClick={updateCourse(
+              formData,
+              setLoadingFlag,
+              setModalState,
+              setTeachersCourses,
+              setUpdateMode
+            )}
+            className="w-full bg-blue-500 text-white py-2 px-4 rounded-md hover:bg-blue-600 transition duration-300"
+          >
+            update
+          </button>
+        )}
       </form>
     </div>
   );

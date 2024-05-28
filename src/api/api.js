@@ -188,4 +188,35 @@ export default class api {
     const response=await axios.get(imageUrl)
     return response
   }
+  static async deleteCourse(userId,courseId){
+    const user = JSON.parse(localStorage.getItem("user"));
+    await axios.delete(`${api.url}/teacher/delete_course?id_course=${courseId}&id=${userId}`,{
+      headers:{
+        email:user.email,
+        password:user.password
+      }
+    })
+  }
+  static async updateCourse(formData){
+    console.log(formData)
+    const user=JSON.parse(localStorage.getItem('user'))
+    formData.id_teacher=user.id
+    formData.date1=formData.date1.day+" "+formData.date1.time
+    formData.date2=formData.date2.day+" "+formData.date2.time
+    formData.first_course=formData.first_course.toString()
+    .slice(0, 19)
+    .replace("T", " ")
+    .split(" ")[0]
+    formData.end_course=formData.end_course.toString()
+    .slice(0, 19)
+    .replace("T", " ")
+    .split(" ")[0]
+    const response=await axios.patch(`${api.url}/teacher/update_date`,{... formData},{
+      headers:{
+        email:user.email,
+        password:user.password
+      }
+    })
+    return response
+  } 
 }

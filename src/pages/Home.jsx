@@ -15,7 +15,7 @@ const Home = () => {
   return (
     <>
        
-       <section className="w-7/8 m-auto min-h-screen flex flex-row items-center shrink-0 grow-0 flex-wrap justify-center pt-[100px]">
+       <section className="w-7/8 m-auto min-h-screen flex flex-row items-center max-w-[600px] shrink-0 grow-0 flex-wrap justify-center pt-[100px]">
      {courses.length || !loadingFlag ?
      (<Courses courses={courses} />
     ) : (

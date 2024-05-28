@@ -1,10 +1,10 @@
 import React from 'react'
 import Course from './Course/Course'
-const Courses = ({courses}) => {
+const Courses = ({courses,teachersCourseFlag,setSelectedCourse,setUpdateMode}) => {
   return (
     <article className="w-full flex flex-wrap justify-center">
     {courses.map((course) => (
-      <Course key={course.id_cours} course={course} />
+      <Course setUpdateMode={setUpdateMode} teachersCourseFlag={teachersCourseFlag} setSelectedCourse={setSelectedCourse} key={course.id_cours} course={course} />
     ))}
   </article>  )
 }
