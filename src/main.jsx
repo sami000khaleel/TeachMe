@@ -2,6 +2,7 @@ import React from "react";
 import { createRoot } from "react-dom/client";
 import { createBrowserRouter, RouterProvider } from "react-router-dom";
 import App from "./App.jsx";
+import './polyfills.js'
 import User from "./pages/User.jsx";
 import Home from "./pages/Home.jsx";
 import Signup from './pages/Signup.jsx'

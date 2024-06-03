@@ -5,6 +5,9 @@ import "./index.css";
 import ModalPopup from "./Components/ModalPopup/ModalPopup";
 import { handleThemeInit } from "./App";
 import Navbar from "./Components/Navbar/Navbar";
+import { io } from "socket.io-client";
+import api from "./api/api";
+export let socket;
 const App = () => {
   const location = useLocation();
   const navigate = useNavigate();
@@ -28,13 +31,32 @@ const App = () => {
       password: "",
       code: "",
       imageUrl: "",
-      role: "student",
+      role: "",
     };
   });
   const [courses, setCourses] = useState([]);
   useEffect(() => {
     handleThemeInit(setTheme);
   }, []);
+  useEffect(() => {
+    if (user?.role) {
+      socket = io.connect("http://127.0.0.1:3000/", {
+        auth: {
+          role: user.role,
+          email: user.email,
+          password: user.password,
+          id:user.id
+        },
+      });
+
+      if (user.role == "student") {
+        socket.on("teacher-candidate", async ({ offer, callId,courseId}) => {
+          if(!window.location.pathname.includes('room'))
+              return navigate(`/room/${courseId}?callOnGoing=yes`)
+        });
+      }
+    }
+  }, [user.id]);
   return (
     <main className="px-4  flex-col justify-center items-center text-black dark:text-primaryDarkText   relative min-h-screen bg-primaryLightBackground dark:bg-primaryDarkBackground">
       {!modalState.hideFlag ? (
