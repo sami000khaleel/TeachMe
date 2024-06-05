@@ -12,9 +12,9 @@ const Navbar = ({ theme,setTheme,user, modalState, setModalState, setCourses }) 
   return (
     <header
       aria-label="header"
-      className="  text-primaryDark fixed  white shadow-xl dark:bg-black top-0 left-0 w-full "
+      className="  text-primaryDark fixed  z-[99999] white shadow-xl dark:bg-black top-0 left-0 w-full"
     >
-      <nav className="z-30 flex justify-between items-center py-4 px-5 ">
+      <nav className="z-[99999] flex justify-between items-center py-4 px-5 ">
        <span className="flex items-center gap-5 justify-center" >
         <Logo />
         <button  onClickCapture={handleThemeChange(setTheme)} className="p-2 rounded-lg dark:text-primaryDarkText  bg-primaryDark dark:bg-primaryDarkBackground text-white  " >{theme}</button>

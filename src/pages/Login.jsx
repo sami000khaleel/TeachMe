@@ -7,6 +7,7 @@ import { useNavigate } from "react-router-dom";
 const Login = () => {
   const { modalState, setModalState, user, setUser } = useOutletContext();
   const [loadingFlag, setLoadingFlag] = useState(false);
+  const [teacherFlag,setTeacherFlag]=useState(false)
   const navigate = useNavigate();
 
   return (
@@ -24,11 +25,11 @@ const Login = () => {
           <input
             type="checkbox"
             id="role"
-            checked={user?.role === 'teacher'}
+            checked={teacherFlag}
             name="role"
             value="teacher"
             onChange={(e) => {
-              setUser((prevUser) => ({ ...prevUser, role: e.target.checked ? 'teacher' : 'student' }));
+              setTeacherFlag(pre=>!pre)
             }}
             className="block bg-primaryLightBackground dark:bg-gray-700 dark:text-gray-200"
           />
@@ -65,7 +66,7 @@ const Login = () => {
         </div>
 
         <button
-          onClick={ user.role === 'student'
+          onClick={ !teacherFlag
           ? handleLoginStudent(user, setModalState, setLoadingFlag, setUser, navigate)
           : handleLoginTeacher(user, setModalState, setLoadingFlag, setUser, navigate)}
           disabled={loadingFlag}
