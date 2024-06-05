@@ -51,22 +51,17 @@ const App = () => {
         },
       });
 
-      // if (user.role == "student") {
-      //   socket.on("teacher-candidate", async ({ offer, callId, courseId }) => {
-      //     if (window.location.pathname.includes("room")) return;
-      //     const res = window.confirm(
-      //       "a lesson is being conducted would you like to join ? "
-      //     );
-      //     console.log(res)
-      //     if (res) navigate(`/room/${courseId}?callOnGoing=yes`);
-      //   });
-      // }
+      if (user.role == "student") {
+        socket.on("teacher-candidate", async ({ offer, callId, courseId }) => {
+          if (window.location.pathname.includes("room")) return;
+          const res = window.confirm(
+            "a lesson is being conducted would you like to join ? "
+          );
+          if (res) navigate(`/room/${courseId}?callOnGoing=yes`);
+        });
+      }
     }
   }, [user.id]);
-  useEffect(()=>{
-    if(location.pathname?.includes('room')){
-    }
-  },[location.pathname])
   return (
     <main className="px-4  flex-col justify-center items-center text-black dark:text-primaryDarkText   relative min-h-screen bg-primaryLightBackground dark:bg-primaryDarkBackground">
       {!modalState.hideFlag ? (

@@ -167,10 +167,11 @@ const Room = () => {
       socket.emit("teacher-offer", { callId: call._id, offer });
       console.log("offer was sent");
       socket.on("student-answer", async ({ answer, studentId }) => {
+        console.log('sss')
         if (!pc) return;
-        if (peersConnections[String(studentId)]) {
-          return;
-        }
+        // if (peersConnections[String(studentId)]) {
+        //   return;
+        // }
         peersConnections[String(studentId)] = pc;
         console.log("got student answer");
         let student = students.find((student) => student.id_stu == studentId);
@@ -285,44 +286,29 @@ const Room = () => {
       });
       if (data?.teacherCandidate) {
         await pc.addIceCandidate(data.teacherCandidate);
-        console.log('asd')
       }
     } catch (err) {
       console.error("Error handling teacher offer:", err);
     }
   };
-  // useEffect(() => {
-  //   if (socket && students.length) {
-  //     if (user.role == "teacher") {
 
-  //     }
-  //   }
-
-  //   return () => {
-  //     if (pc) {
-  //       pc.close();
-  //     }
-  //     // socket.off("teacher-offer");
-  //     // socket.off("teacher-candidate");
-  //   };
-  // }, [gotStudentsFlag]);
   useEffect(() => {
     getStudents(false);
     if (socket) {
       if (user.role == "student") {
-        // if (query.get("callOnGoing") === "yes") {
+        if (query.get("callOnGoing") === "yes") {
         const requestCall = async () => {
           try {
-            // const { data } = await axios.get(
-            //   `http://localhost:3000/api/student/request_call?courseId=${courseId}`
-            // );
-            // await handleTeacherOffer(data);
+            const { data } = await axios.get(
+              `http://localhost:3000/api/student/request_call?courseId=${courseId}`
+            );
+            await handleTeacherOffer(data);
             if (courseId) socket.emit("student-ask-for-call", { courseId });
           } catch (err) {
             console.error("Error requesting call:", err);
           }
         };
-        requestCall();
+        // requestCall();
         // }
         socket.on("no-call", async ({ message }) => {
           console.log(message);
@@ -360,7 +346,7 @@ const Room = () => {
           }, 5000);
           setTeacherConnection(tCnct);
         });
-      }
+      }}
     }
 
     return () => {
@@ -435,14 +421,7 @@ const Room = () => {
             ref={studentVideoRef}
             className="absolute right-0 bottom-0 bg-black w-[150px] aspect-square"
           ></video>
-          {user.role == "student" ? (
-            <button
-              onClick={askForCall}
-              className="bg-white text-black absolute bottom-10 left-1 "
-            >
-              connect
-            </button>
-          ) : null}
+          
         </section>
       ) : null}
     </>
