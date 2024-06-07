@@ -22,6 +22,7 @@ const configuration = {
 };
 
 const Room = () => {
+  const [flag,setFlag]=useState(false)
   const [requestCallFlag, setRequestCallFlag] = useState(false);
   const [callStartedFlag, setCallStartedFlag] = useState(false);
   const [isMutedFlag, setIsMutedFlag] = useState(false);
@@ -43,12 +44,16 @@ const Room = () => {
   const { courseId } = useParams();
   const query = useQuery();
   const [callId, setCallId] = useState(null);
-  function updateStudents(student) {
-    for (let stu of students) {
-      if (stu.id_stu == student.id_stu) stu = student;
-      setStudents(students);
-    }
-  }
+  function updateStudents(updatedStudent) {
+    const updatedStudents = students.map((student) =>
+      student.id_stu === updatedStudent.id_stu ? updatedStudent : student
+    );
+
+    const onlineStudents = updatedStudents.filter(student => student.state !== 'offline');
+    const offlineStudents = updatedStudents.filter(student => student.state === 'offline');
+
+    setStudents([...onlineStudents, ...offlineStudents]);
+}
   async function getStudents(flag) {
     try {
       const { data } = await axios.get(
@@ -61,6 +66,7 @@ const Room = () => {
         ...student,
         studentRef: React.createRef(),
         state: "offline",
+        warning:''
       }));
       if (flag) setGotStudentsFlag((pre) => !pre);
       console.log("got students", data.length);
@@ -139,24 +145,52 @@ const Room = () => {
                 console.log("Connecting…");
                 break;
               case "connected":
+                let stu = students.find((st) => st.id_stu == studentId);
+                if (stu) {
+                  stu = { ...stu, state: peersConnections[String(studentId)].connectionState };
+                  updateStudents(stu);}
+                  setFlag(pre=>!pre)
                 console.log("Online");
+
                 break;
-              case "disconnected":
+              case "disconnected": {
                 console.log("Disconnecting…");
+                let stu = students.find((st) => st.id_stu == studentId);
+                if (stu) {
+                  stu = { ...stu, state: peersConnections[String(studentId)].connectionState };
+                  updateStudents(stu);}
+                  setFlag(pre=>!pre)
+                peersConnections[String(studentId)].close();
+                peersConnections[String(studentId)] = null;
                 break;
-              case "closed":
+              }
+              case "closed": {
                 console.log("Offline");
+                let stu = students.find((st) => st.id_stu == studentId);
+                if (stu) {
+                  stu = { ...stu, state: peersConnections[String(studentId)].connectionState };
+                  updateStudents(stu);}
+                  setFlag(pre=>!pre)
+                peersConnections[String(studentId)].close();
+
                 break;
-              case "failed":
+              }
+              case "failed": {
                 console.log("Error");
+                let stu = students.find((st) => st.id_stu == studentId);
+                if (stu) {
+                  stu = { ...stu, state: peersConnections[String(studentId)].connectionState };
+                  updateStudents(stu);}
+                  setFlag(pre=>!pre)
+                peersConnections[String(studentId)].close();
+
                 break;
+              }
               default:
                 console.log("Unknown");
                 break;
             }
-            let stu = students.find((st) => st.id_stu == studentId);
-            stu.state = peersConnections[String(studentId)].connectionState;
-            updateStudents(stu);
+         
           },
           false
         );
@@ -226,37 +260,49 @@ const Room = () => {
             case "connecting":
               console.log("Connecting…");
               break;
-            case "connected":
+            case "connected": {
+              setRequestCallFlag(false);
               console.log("Online");
               break;
-            case "disconnected": {
+            }
+            case "disconnected":
               setTeacherState("disconnected");
               console.log("Disconnecting…");
               teacherVideoRef.current.srcObject.getTracks()[0].stop();
               teacherVideoRef.current.srcObject.getTracks()[1].stop();
-              pc.close();
+              // pc.close()
+              // pc=null
+              setRequestCallFlag(true);
               break;
-            }
-            case "closed": {
+
+            case "closed":
               teacherVideoRef.current.srcObject.getTracks()[0].stop();
               teacherVideoRef.current.srcObject.getTracks()[1].stop();
               pc.close();
+              pc = null;
+              setRequestCallFlag(true);
 
               console.log("Offline");
               break;
-            }
-            case "failed": {
+
+            case "failed":
               console.log("Error");
               teacherVideoRef.current.srcObject.getTracks()[0].stop();
               teacherVideoRef.current.srcObject.getTracks()[1].stop();
               pc.close();
+              pc = null;
+              setRequestCallFlag(true);
               break;
-            }
+
             default:
               console.log("Unknown");
               break;
           }
-          if (pc) setTeacherState(pc.connectionState);
+          if (pc) {
+            setTeacherState(pc.connectionState);
+            if (pc.connectionState == "connecting")
+              setTeacherConnection("ask for connection");
+          }
         },
         false
       );
@@ -285,8 +331,12 @@ const Room = () => {
       studentStream
         .getTracks()
         .forEach((track) => pc.addTrack(track, studentStream));
-
-      const answer = await pc.createAnswer();
+      let answer;
+      answer = await pc.createAnswer().catch((err) =>
+        setTimeout(async () => {
+          answer = await pc.createAnswer();
+        }, 2000)
+      );
       await pc.setLocalDescription(answer);
       socket.emit("student-answer", {
         callId: data._id,
@@ -322,11 +372,15 @@ const Room = () => {
         socket.on("ask-me-for-offer", async ({ callId }) => {
           // if (pc?.connectionState == "connected") return;
           console.log("time to ask for offer");
-          setRequestCallFlag(true)
+          setRequestCallFlag(true);
           socket.emit("request-offer", { callId });
         });
         socket.on("teacher-offer", async ({ offer, callId }) => {
           try {
+            if (pc) {
+              pc.close();
+              pc = null;
+            }
             if (pc?.connectionState == "connected") return;
             console.log("got teacher offer");
             await handleTeacherOffer({ offer, _id: callId });
@@ -378,19 +432,32 @@ const Room = () => {
   }, [socket]);
   async function endCall() {
     for (let key in peersConnections) {
-      if (peersConnections[key]?.connectionState) peersConnections[key].close();
+      if (peersConnections[key]?.connectionState) {
+        console.log(peersConnections[key]);
+        peersConnections[key].close();
+        peersConnections[key] = null;
+      }
     }
     teacherVideoRef.current.srcObject.getTracks()[0].stop();
     teacherVideoRef.current.srcObject.getTracks()[1].stop();
     setCallStartedFlag(false);
   }
+  const toggleSound = () => {
+    if (!teacherVideoRef.current.srcObject) return;
+
+    teacherVideoRef.current.srcObject.getAudioTracks().forEach((track) => {
+      track.enabled = !track.enabled;
+    });
+
+    setIsMutedFlag((prev) => !prev);
+  };
   if (socket)
     return (
       <>
         {user.role == "student" || students.length ? (
           <section
             id="room"
-            className="relative   w-full flex flex-col justify-start items-center"
+            className="relative pt-[100px]  w-full flex flex-col justify-center items-center"
           >
             {user.role == "student" && (
               <div className="text-center absolute w-[100px] z-50 right-1/2 top-1/2 translate-x-[50%] -translate-y-1/2  ">
@@ -398,53 +465,82 @@ const Room = () => {
               </div>
             )}
             {/* <StudentsAttendingList students /> */}
-            <div className="relative ">
-              <video
-                ref={teacherVideoRef}
-                className="bg-black max-h-[50vh] mt-[100px] relative w-screen shadow-xl max-w-[1000px] min-w-[340px]"
-                autoPlay
-                playsInline
-              ></video>
-              <div className="flex mt-3 flex-row justify-evenly items-center">
-                <button
-                  onClick={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    !callStartedFlag ? teacherMakeCall() : endCall();
-                  }}
-                  className="bg-white text-black"
-                >
-                  {!callStartedFlag ? <Video /> : <VideoOff />}
-                </button>
-                <button className="bg-white text-black">
-                  {isMutedFlag ? <Mic /> : <MicOff />}
-                </button>
+            <div className="relative flex flex-col ">
+              <div className="w-full aspect-video bg-black">
+                <video
+                  ref={teacherVideoRef}
+                  className="aspect-video h-[400px]  "
+                  autoPlay
+                  playsInline
+                ></video>
               </div>
-              {students.length &&user.role=='teacher'&&
-                students.map((student) => (
-                  <div
-                    key={student.id_stu}
-                    className="flex flex-col justify-center items-center gap-2"
+              {user.role == "teacher" ? (
+                <div className="flex mt-3 flex-row justify-evenly items-center">
+                  <button
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      !callStartedFlag ? teacherMakeCall() : endCall();
+                    }}
+                    className="bg-white rounded-full p-2 text-black"
                   >
-                    <video
-                      playsInline
-                      autoPlay
-                      ref={student.studentRef}
-                      className="bg-black w-[150px] aspect-square"
-                    ></video>
-                  </div>
-                ))}
+                    {!callStartedFlag ? <Video size={40} /> : <VideoOff size={40}/>}
+                  </button>
+                  <button
+                    onClick={async (e) => {
+                      e.preventDefault()
+                      e.stopPropagation()
+                      toggleSound()
+                    }}
+                    
+                    className="bg-white rounded-full p-2 text-black"
+                  >
+                    {isMutedFlag ? <Mic  size={40}/> : <MicOff size={40} />}
+                  </button>
+                </div>
+              ) : null}
+              {students.length && user.role == "teacher" ? (
+                <div className="flex sm:flex-col justify-center items-start mt-4">
+                  {students.map((student) => (
+                    <div
+                      key={student.id_stu}
+                      className="flex sm:flex-row flex-col  justify-around gap-5 items-center px-5 "
+                    >
+                      <img
+                        className="w-[80px] rounded-full aspect-square"
+                        src={student.image_url}
+                        alt={`${student.first_name_stu} ${student.last_name_stu}`}
+                      />
+                      <h1>
+                        {student.first_name_stu} {student.last_name_stu}
+                      </h1>
+                      <h1>{student.state}</h1>
+                      <video
+                        playsInline
+                        autoPlay
+                        ref={student.studentRef}
+                        className=" bg-black w-[150px] m-2  aspect-video"
+                      ></video>
+                    </div>
+                  ))}
+                </div>
+              ) : null}
             </div>
-            <video
-              playsInline
-              autoPlay
-              ref={studentVideoRef}
-              className="absolute right-0 bottom-0 bg-black w-[150px] aspect-square"
-            ></video>
-            {requestCallFlag && pc?.connectionState == "closed" ? (
+            {/* {user.role == "student" ? (
+              <video
+                playsInline
+                autoPlay
+                ref={studentVideoRef}
+                className="absolute right-0 bottom-0 bg-black w-[150px] aspect-square"
+              ></video>
+            ) : null} */}
+
+            {user.role == "student" ? (
               <button
                 className="bg-white text-black absolute bottom-2 left-2"
                 onClick={() => {
+                  if (pc) pc.close();
+                  pc = null;
                   socket.emit("request-offer", { callId });
                 }}
               >
