@@ -7,6 +7,7 @@ import { handleThemeInit } from "./App";
 import Navbar from "./Components/Navbar/Navbar";
 import { io } from "socket.io-client";
 import api from "./api/api";
+import { VideoIcon,VideoOffIcon,MicIcon,MicOffIcon } from "lucide-react";
 let user = JSON.parse(localStorage.getItem("user"));
 let socket;
 
@@ -15,6 +16,7 @@ const App = () => {
   const navigate = useNavigate();
   const [students, setStudents] = useState([]);
   const [course, setCourse] = useState({});
+  
   const [modalState, setModalState] = useState({
     message: "",
     status: "",
@@ -58,6 +60,9 @@ const App = () => {
             "a lesson is being conducted would you like to join ? "
           );
           if (res) navigate(`/room/${courseId}?callOnGoing=yes`);
+       else{
+        console.log('a')
+       }
         });
       }
     }

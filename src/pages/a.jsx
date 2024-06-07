@@ -1,8 +1,16 @@
 import React, { useState, useEffect, useRef } from "react";
-import { socket } from "../App.jsx";
-import { useParams } from "react-router-dom";
+import { useParams, useLocation } from "react-router-dom";
+import { useOutletContext } from "react-router-dom";
 import axios from "axios";
-const user = JSON.parse(localStorage.getItem("user"));
+import { io } from "socket.io-client"; // Make sure axios is imported
+import { Video, VideoOff, Mic, MicOff } from "lucide-react";
+
+function useQuery() {
+  return new URLSearchParams(useLocation().search);
+}
+
+let studentStream;
+let teacherStream;
 let pc;
 const configuration = {
   iceServers: [
@@ -10,468 +18,436 @@ const configuration = {
       urls: ["stun:stun1.l.google.com:19302", "stun:stun2.l.google.com:19302"],
     },
   ],
-  iceCandidatePoolSize: 10,
+  iceCandidatePoolSize: 1,
 };
-let localStream;
-async function getOfferCreatePcAndSendAnswer(offer) {
-  if (pc) {
-    console.log("call is already on going");
-    return;
-  }
-  try {
-    pc = new RTCPeerConnection(configuration);
-    pc.onicecandidate = (e) => {
-      console.log("found ice");
-      if (e.candidate)
-        socket.emit("student-sent-candidate", {
-          callId,
-          studentId,
-          candidate: e.candidate,
-        });
-    };
-    localStream.getTracks().forEach((track) => pc.addTrack(track, localStream));
 
-    const answer = await pc.createAnswer();
-    socket.emit("student-sent-answer", {
-      callId,
-      studentId: user.id,
-      answer,
-    });
-    await pc.setLocalDescription(answer);
-  } catch (error) {}
-}
-async function startTheCall(
-  teacherVideo,
-  callStartedFlag,
-  setCallStartedFlag,
-  courseId,
-  callId,
-  setCallId
-) {
-  try {
-    localStream = await navigator.mediaDevices.getUserMedia({
-      video: true,
-      audio: { echoCancellation: true },
-    });
-    teacherVideo.current.srcObject = localStream;
-
-    console.log(configuration);
-    pc = new RTCPeerConnection(configuration);
-    pc.onicecandidate = (e) => {
-      console.log("found ice");
-      if (e.candidate)
-        socket.emit("teacher-candidate", {
-          callId,
-          candidate: e.candidate,
-        });
-    };
-    localStream.getTracks().forEach((track) => pc.addTrack(track, localStream));
-
-    const offer = await pc.createOffer();
-    socket.emit("teacher-offer", {
-      callId,
-      offer,
-    });
-    await pc.setLocalDescription(offer);
-  } catch (err) {
-    console.log(err);
-  }
-}
-function haltTheCall(localStream) {
-  console.log(localStream);
-  localStream.getTracks().forEach((track) => track.stop());
-  localStream = null;
-}
-function mute(videoRef, mutedFlag, setMutedFlag) {
-  console.log(videoRef);
-  console.log(mutedFlag);
-  if (!mutedFlag) {
-    videoRef.current.muted = true;
-    setMutedFlag(true);
-  } else {
-    videoRef.current.muted = false;
-    setMutedFlag(false);
-  }
-}
-async function turnOnStudentVideo(studentVideoRef) {
-  try {
-    localStream = await navigator.mediaDevices.getUserMedia({
-      video: true,
-      audio: false,
-    });
-    studentVideoRef.current.srcObject = localStream;
-  } catch (error) {
-    console.log("student has refused to to give permission");
-  }
-}
 const Room = () => {
-  const { courseId } = useParams();
-
-  const [call, setCall] = useState({});
-  const [callId, setCallId] = useState(null);
   const [callStartedFlag, setCallStartedFlag] = useState(false);
-  const [callHaltedFlag, setCallHaltedFlag] = useState(false);
-  const [mutedFlag, setMutedFlag] = useState(false);
-  const teacherVideo = useRef("");
-  const studentVideo = useRef("");
+  const [isMutedFlag, setIsMutedFlag] = useState(false);
+  const user = JSON.parse(localStorage.getItem("user"));
+  const [teacherState, setTeacherState] = useState("offline");
+  const [students, setStudents] = useState([]);
+  const [gotStudentsFlag, setGotStudentsFlag] = useState(false);
+  let teacherTimeOut = useRef();
+  const [teacherConnection, setTeacherConnection] = useState({
+    connected: false,
+    streamStopped: false,
+  });
+  let { socket, setModalState, modalState } = useOutletContext();
+  let timeOutes = useRef({});
+  let peersConnections = useRef({});
 
-  useEffect(() => {
-    async function createCall() {
-      const user = JSON.parse(localStorage.getItem("user"));
-      if (user.role != "teacher") return;
-      const { data } = await axios.post(
-        "http://127.0.0.1:3000/api/teacher/create_lesson",
-        {
-          teacherId: user.id,
-          courseId,
-        },
-        {
-          headers: {
-            email: user.email,
-            password: user.password,
-          },
-        }
-      );
-      setCallId(data._id);
+  let teacherVideoRef = useRef();
+  let studentVideoRef = useRef();
+  const { courseId } = useParams();
+  const query = useQuery();
+  const [callId, setCallId] = useState(null);
+  function updateStudents(student) {
+    for (let stu of students) {
+      if (stu.id_stu == student.id_stu) stu = student;
+      setStudents(students);
     }
-    async function getTheCall() {
+  }
+  async function getStudents(flag) {
+    try {
       const { data } = await axios.get(
-        `http://127.0.0.1:3000/api/student/request_call?courseId=${courseId}`,
-        {
-          headers: {
-            email: user.email,
-            password: user.password,
-          },
-        }
+        `http://127.0.0.1:3000/api/student/get_students_by_course?courseId=${courseId}`
       );
-      if (!data?._id) throw new Error("no call is being made");
+      if (!data.length) throw new Error("no students were found");
 
-      setCall(data);
-
-      return data;
+      // Add refs to each student object
+      const studentsWithRefs = data.map((student) => ({
+        ...student,
+        studentRef: React.createRef(),
+        state: "offline",
+      }));
+      if (flag) setGotStudentsFlag((pre) => !pre);
+      console.log("got students", data.length);
+      setStudents(studentsWithRefs);
+    } catch (error) {
+      console.log(error);
     }
+  }
+  const initializeStudentStream = async () => {
+    try {
+      studentStream = await navigator.mediaDevices.getUserMedia({
+        video: true,
+        audio: false,
+      });
+      studentVideoRef.current.srcObject = studentStream;
+      return studentStream;
+    } catch (err) {
+      console.error("Error accessing student media devices:", err);
+    }
+  };
 
-    if (user.role == "student") {
-      // if there is data this means that the teachers offer is ready
-      getTheCall()
-        .then((call) => {
-          turnOnStudentVideo(studentVideo);
+  const initializeTeacherStream = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: true,
+        audio: true,
+      });
+      teacherVideoRef.current.srcObject = stream;
+      return stream;
+    } catch (err) {
+      console.error("Error accessing teacher media devices:", err);
+    }
+  };
 
-          getOfferCreatePcAndSendAnswer(call.offer);
-        })
-        .catch((err) => {
-          console.log(err);
+  async function createCall() {
+    if (user.role !== "teacher") return null;
+    const { data } = await axios.post(
+      "http://127.0.0.1:3000/api/teacher/create_lesson",
+      {
+        teacherId: user.id,
+        courseId,
+      },
+      {
+        headers: {
+          email: user.email,
+          password: user.password,
+        },
+      }
+    );
+    return data;
+  }
+
+  const teacherMakeCall = async () => {
+    try {
+      if (user.role != "teacher") return;
+
+      const call = await createCall();
+      if (!call) return;
+      setCallId(call._id);
+      if (!students.length) await getStudents(true);
+      const teacherStream = await initializeTeacherStream();
+
+      if (!teacherStream) return;
+      setCallStartedFlag(true)
+      socket.emit("ask-me-for-offer", { callId: call._id });
+      socket.on("request-offer", async ({ studentId }) => {
+        peersConnections[String(studentId)] = new RTCPeerConnection(
+          configuration
+        );
+        peersConnections[String(studentId)].addEventListener(
+          "connectionstatechange",
+          (event) => {
+            switch (peersConnections[String(studentId)].connectionState) {
+              case "new":
+              case "connecting":
+                console.log("Connecting…");
+                break;
+              case "connected":
+                console.log("Online");
+                break;
+              case "disconnected":
+                console.log("Disconnecting…");
+                break;
+              case "closed":
+                console.log("Offline");
+                break;
+              case "failed":
+                console.log("Error");
+                break;
+              default:
+                console.log("Unknown");
+                break;
+            }
+            let stu = students.find((st) => st.id_stu == studentId);
+            stu.state = peersConnections[String(studentId)].connectionState;
+            updateStudents(stu);
+          },
+          false
+        );
+        teacherStream.getTracks().forEach((track) => {
+          peersConnections[String(studentId)].addTrack(track, teacherStream);
         });
-      socket.on("get-teacher-candidate", async ({ candidate }) => {});
+        peersConnections[String(studentId)].onicecandidate = (e) => {
+          if (e.candidate) {
+            socket.emit("teacher-candidate", {
+              teacherId: user.id,
+              callId: call._id,
+              candidate: e.candidate,
+            });
+            console.log("candidate was sent");
+          }
+        };
+
+        const offer = await peersConnections[String(studentId)].createOffer();
+        await peersConnections[String(studentId)]
+          .setLocalDescription(offer)
+          .catch((err) => console.log(err));
+        socket.emit("teacher-offer", { callId: call._id, offer });
+        socket.on("student-answer", async ({ answer, studentId }) => {
+          console.log("got student answer");
+          let student = students.find((student) => student.id_stu == studentId);
+          peersConnections[String(student.id_stu)].ontrack = (e) => {
+            student.studentRef.current.srcObject = e.streams[0];
+            console.log("got student track");
+            student.connected = true;
+            student.streamStopped = false;
+            updateStudents(student);
+            if (timeOutes[String(student.id_stu)]) {
+              clearTimeout(timeOutes[String(student.id_stu)]);
+            }
+            setStudents(students);
+          };
+          await peersConnections[String(student.id_stu)]
+            .setRemoteDescription(answer)
+            .catch((err) => console.log(err));
+          console.log("student answer was set");
+        });
+        socket.on("student-candidate", async ({ candidate, studentId }) => {
+          console.log("got student candidate");
+          if (!peersConnections[String(studentId)]) {
+            console.log("no answers yet");
+            return;
+          }
+          await peersConnections[String(studentId)]
+            .addIceCandidate(candidate)
+            .catch((err) => console.log(err));
+          console.log("student candidate was set");
+        });
+      });
+    } catch (error) {
+      console.log(error);
     }
-    if (user.role == "teacher") createCall();
-  }, []);
-  return (
-    <section
-      id="room "
-      className="relative w-full  flex flex-col  items-center "
-    >
-      <div className="relative">
-        <video
-          ref={teacherVideo}
-          className="bg-black max-h-[50vh] mt-[100px] relative w-screen shadow-xl max-w-[1000px] min-w-[340px]"
-          autoPlay
-          playsInline
-          src=" "
-        ></video>
-        <div className="flex mt-3 flex-row justify-evenly items-center">
-          <button
-            onClick={async (e) => {
-              e.preventDefault();
-              e.stopPropagation();
-              startTheCall(
-                teacherVideo,
-                callStartedFlag,
-                setCallStartedFlag,
-                courseId,
-                callId,
-                setCallId
-              );
-            }}
-            className=" bg-white text-black"
+  };
+  const handleTeacherOffer = async (data) => {
+    try {
+      setCallId(data._id);
+      pc = new RTCPeerConnection(configuration);
+      pc.addEventListener(
+        "connectionstatechange",
+        async (event) => {
+          switch (pc.connectionState) {
+            case "new":
+            case "connecting":
+              console.log("Connecting…");
+              break;
+            case "connected":
+              console.log("Online");
+              break;
+            case "disconnected":
+              {
+                setTeacherState("disconnected");
+                console.log("Disconnecting…");
+                teacherVideoRef.current.srcObject.getTracks()[0].stop()   
+              teacherVideoRef.current.srcObject.getTracks()[1].stop() 
+                pc.close()
+                break;
+              }
+            case "closed":{
+              teacherVideoRef.current.srcObject.getTracks()[0].stop()   
+              teacherVideoRef.current.srcObject.getTracks()[1].stop() 
+              pc.close()
+              console.log("Offline");
+              break;
+            }
+            case "failed":{
+              console.log("Error");
+teacherVideoRef.current.srcObject.getTracks()[0].stop()   
+teacherVideoRef.current.srcObject.getTracks()[1].stop() 
+pc.close()              
+break;}
+            default:
+              console.log("Unknown");
+              break;
+          }
+          if (pc) setTeacherState(pc.connectionState);
+        },
+        false
+      );
+      pc.ontrack = (e) => {
+        teacherVideoRef.current.srcObject = e.streams[0];
+        console.log("got teacher tracks");
+        setTeacherConnection((pre) => ({
+          connected: true,
+          streamStopped: false,
+        }));
+        clearTimeout(teacherTimeOut);
+      };
+      await pc.setRemoteDescription(data.offer);
+      console.log("teacher offer was set");
+      pc.onicecandidate = (e) => {
+        if (e.candidate) {
+          socket.emit("student-candidate", {
+            callId: data._id,
+            candidate: e.candidate,
+          });
+        }
+      };
+
+        await initializeStudentStream();
+      
+
+      studentStream
+        .getTracks()
+        .forEach((track) => pc.addTrack(track, studentStream));
+
+      const answer = await pc.createAnswer();
+      await pc.setLocalDescription(answer);
+      socket.emit("student-answer", {
+        callId: data._id,
+        answer,
+      });
+      if (data?.teacherCandidate) {
+        data.candidate = data.teacherCandidate;
+      }
+      await pc.addIceCandidate(data.candidate);
+    } catch (err) {
+      console.error("Error handling teacher offer:", err);
+    }
+  };
+  useEffect(() => {
+    getStudents(false);
+    if (socket) {
+      if (user.role == "student") {
+        // if (query.get("callOnGoing") === "yes") {
+        const requestCall = async () => {
+          try {
+            const { data } = await axios.get(
+              `http://localhost:3000/api/student/request_call?courseId=${courseId}`
+            );
+            setCallId(data._id);
+            socket.emit("request-offer", { callId: data._id });
+            // await handleTeacherOffer(data);
+            // if (courseId) socket.emit("student-ask-for-call", { courseId });
+          } catch (err) {
+            console.error("Error requesting call:", err);
+          }
+        };
+        requestCall();
+        socket.on("ask-me-for-offer", async ({ callId }) => {
+          if (pc?.connectionState == "connected") return;
+          console.log("time to ask for offer");
+          socket.emit("request-offer", { callId });
+        });
+        socket.on("teacher-offer", async ({ offer, callId }) => {
+          try {
+            if (pc?.connectionState == "connected") return;
+          pc=null
+            console.log("got teacher offer");
+            await handleTeacherOffer({ offer, _id: callId });
+          } catch (err) {
+            console.error("Error handling teacher offer:", err);
+          }
+        });
+
+        socket.on("teacher-candidate", async ({ candidate }) => {
+          if (pc?.connectionState == "connected") return;
+          if (!pc) {
+            console.log("No peer connection to handle candidate");
+            return;
+          }
+          try {
+            console.log("got teacher candidate");
+            await pc
+              .addIceCandidate(candidate)
+              .catch((err) => console.log(err));
+            console.log("teacher candidate was set");
+          } catch (err) {
+            console.error("Error adding ICE candidate:", err);
+          }
+        });
+        socket.on("teacher-disconnected", ({ teacherId }) => {
+          let tCnct = teacherConnection;
+          tCnct.streamStopped = true;
+          teacherTimeOut = setTimeout(() => {
+            tCnct.streamStopped = true;
+            tCnct.connected = false;
+          }, 5000);
+          setTeacherConnection(tCnct);
+        });
+      }
+    }
+    return () => {
+      if (socket) {
+        socket.emit("student-exit-call");
+        socket.off("no-call");
+        socket.off("teacher-offer");
+        socket.off("teacher-candidate");
+        socket.off("teacher-disconnect");
+        socket.off("student-disconnect");
+      }
+      if (pc) {
+        pc.close();
+      }
+    };
+  }, [socket]);
+  async function endCall(){
+     for(let key in peersConnections){
+        if(peersConnections[key]?.connectionState)
+          peersConnections[key].close()
+      }
+      teacherVideoRef.current.srcObject.getTracks()[0].stop()   
+      teacherVideoRef.current.srcObject.getTracks()[1].stop()   
+      setCallStartedFlag(false)
+    }
+  if (socket)
+    return (
+      <>
+        {user.role == "student" || students.length ? (
+          <section
+            id="room"
+            className="relative   w-full flex flex-col justify-start items-center"
           >
-            start call
-          </button>
-          <button
-            onClick={async (e) => {
-              e.preventDefault();
-              e.stopPropagation();
-              mute(teacherVideo, mutedFlag, setMutedFlag);
-            }}
-            className="  bg-white text-black"
-          >
-            mute
-          </button>
-          {/* <button
-        onClick={async(e)=>{
-            e.preventDefault()
-            e.stopPropagation()
-            haltTheCall(localStream)
-        }}  
-        className='  bg-white text-black' >
-            halt call
-        </button> */}
-        </div>
-        <video
-          src=""
-          playsInline
-          autoPlay
-          ref={studentVideo}
-          className="bg-black w-[150px] aspect-square absolute left-5"
-        >
-          cxz
-        </video>
-      </div>
-    </section>
-  );
+            {user.role == "student" && (
+              <div className="text-center absolute w-[100px] z-50 right-1/2 top-1/2 translate-x-[50%] -translate-y-1/2  ">
+                {teacherState == "offline" ? null : teacherState}
+              </div>
+            )}
+            {/* <StudentsAttendingList students /> */}
+            <div className="relative ">
+              <video
+                ref={teacherVideoRef}
+                className="bg-black max-h-[50vh] mt-[100px] relative w-screen shadow-xl max-w-[1000px] min-w-[340px]"
+                autoPlay
+                playsInline
+              ></video>
+              <div className="flex mt-3 flex-row justify-evenly items-center">
+                <button
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    !callStartedFlag ? teacherMakeCall() : endCall();
+                  }}
+                  className="bg-white text-black"
+                >
+                  {!callStartedFlag ? <Video /> : <VideoOff />}
+                </button>
+                <button className="bg-white text-black">
+                  {isMutedFlag ? <Mic /> : <MicOff />}
+                </button>
+              </div>
+              {students.length &&
+                students.map((student) => (
+                  <div
+                    key={student.id_stu}
+                    className="flex flex-col justify-center items-center gap-2"
+                  >
+                    <video
+                      playsInline
+                      autoPlay
+                      ref={student.studentRef}
+                      className="bg-black w-[150px] aspect-square"
+                    ></video>
+                  </div>
+                ))}
+            </div>
+            <video
+              playsInline
+              autoPlay
+              ref={studentVideoRef}
+              className="absolute right-0 bottom-0 bg-black w-[150px] aspect-square"
+            ></video>
+            {callId&&pc?.connectionState=='closed'?<button className="bg-white text-black absolute bottom-2 left-2" onClick={()=>{
+            socket.emit('request-offer',{callId})
+          }} >connect</button>:null}
+          </section>
+        ) : null}
+      </>
+    );
 };
 
 export default Room;
-// import { io } from "socket.io-client";
-// import { useRef, useEffect, useState } from "react";
-// import { FiVideo, FiVideoOff, FiMic, FiMicOff } from "react-icons/fi";
-// const configuration = {
-//   iceServers: [
-//     {
-//       urls: ["stun:stun1.l.google.com:19302", "stun:stun2.l.google.com:19302"],
-//     },
-//   ],
-//   iceCandidatePoolSize: 10,
-// };
-// const socket = io("http://localhost:3000", { transports: ["websocket"] });
-
-// let pc;
-// let localStream;
-// let startButton;
-// let hangupButton;
-// let muteAudButton;
-// let remoteVideo;
-// let teacherVideo;
-// socket.on("message", (e) => {
-//   if (!localStream) {
-//     console.log("not ready yet");
-//     return;
-//   }
-//   switch (e.type) {
-//     case "offer":
-//       handleOffer(e);
-//       break;
-//     case "answer":
-//       handleAnswer(e);
-//       break;
-//     case "candidate":
-//       handleCandidate(e);
-//       break;
-//     case "ready":
-//       // A second tab joined. This tab will initiate a call unless in a call already.
-//       if (pc) {
-//         console.log("already in call, ignoring");
-//         return;
-//       }
-//       makeCall();
-//       break;
-//     case "bye":
-//       if (pc) {
-//         hangup();
-//       }
-//       break;
-//     default:
-//       console.log("unhandled", e);
-//       break;
-//   }
-// });
-
-// async function makeCall() {
-
-//   try {
-//     pc = new RTCPeerConnection(configuration);
-//     pc.onicecandidate = (e) => {
-//       const message = {
-//         type: "candidate",
-//         candidate: null,
-//       };
-//       if (e.candidate) {
-//         message.candidate = e.candidate.candidate;
-//         message.sdpMid = e.candidate.sdpMid;
-//         message.sdpMLineIndex = e.candidate.sdpMLineIndex;
-//       }
-//       socket.emit("message", message);
-//     };
-//     pc.ontrack = (e) => (remoteVideo.current.srcObject = e.streams[0]);
-//     localStream.getTracks().forEach((track) => pc.addTrack(track, localStream));
-//     const offer = await pc.createOffer();
-//     socket.emit("message", { type: "offer", sdp: offer.sdp });
-//     await pc.setLocalDescription(offer);
-//   } catch (e) {
-//     console.log(e);
-//   }
-// }
-
-// async function handleOffer(offer) {
-//   if (pc) {
-//     console.error("existing peerconnection");
-//     return;
-//   }
-//   try {
-//     pc = new RTCPeerConnection(configuration);
-//     pc.onicecandidate = (e) => {
-//       const message = {
-//         type: "candidate",
-//         candidate: null,
-//       };
-//       if (e.candidate) {
-//         message.candidate = e.candidate.candidate;
-//         message.sdpMid = e.candidate.sdpMid;
-//         message.sdpMLineIndex = e.candidate.sdpMLineIndex;
-//       }
-//       socket.emit("message", message);
-//     };
-//     pc.ontrack = (e) => (remoteVideo.current.srcObject = e.streams[0]);
-//     localStream.getTracks().forEach((track) => pc.addTrack(track, localStream));
-//     await pc.setRemoteDescription(offer);
-
-//     const answer = await pc.createAnswer();
-//     socket.emit("message", { type: "answer", sdp: answer.sdp });
-//     await pc.setLocalDescription(answer);
-//   } catch (e) {
-//     console.log(e);
-//   }
-// }
-
-// async function handleAnswer(answer) {
-//   if (!pc) {
-//     console.error("no peerconnection");
-//     return;
-//   }
-//   try {
-//     await pc.setRemoteDescription(answer);
-//   } catch (e) {
-//     console.log(e);
-//   }
-// }
-
-// async function handleCandidate(candidate) {
-//   try {
-//     if (!pc) {
-//       console.error("no peerconnection");
-//       return;
-//     }
-//     if (!candidate) {
-//       await pc.addIceCandidate(null);
-//     } else {
-//       await pc.addIceCandidate(candidate);
-//     }
-//   } catch (e) {
-//     console.log(e);
-//   }
-// }
-// async function hangup() {
-//   if (pc) {
-//     pc.close();
-//     pc = null;
-//   }
-//   localStream.getTracks().forEach((track) => track.stop());
-//   localStream = null;
-//   startButton.current.disabled = false;
-//   hangupButton.current.disabled = true;
-//   muteAudButton.current.disabled = true;
-// }
-
-// function App() {
-//   startButton = useRef(null);
-//   hangupButton = useRef(null);
-//   muteAudButton = useRef(null);
-//   teacherVideo = useRef(null);
-//   remoteVideo = useRef(null);
-//   useEffect(() => {
-//     hangupButton.current.disabled = true;
-//     muteAudButton.current.disabled = true;
-//   }, []);
-//   const [audiostate, setAudio] = useState(false);
-
-//   const startB = async () => {
-//     try {
-//       localStream = await navigator.mediaDevices.getUserMedia({
-//         video: true,
-//         audio: { echoCancellation: true },
-//       });
-//       teacherVideo.current.srcObject = localStream;
-//     } catch (err) {
-//       console.log(err);
-//     }
-
-//     startButton.current.disabled = true;
-//     hangupButton.current.disabled = false;
-//     muteAudButton.current.disabled = false;
-
-//     socket.emit("message", { type: "ready" });
-//   };
-
-//   const hangB = async () => {
-//     hangup();
-//     socket.emit("message", { type: "bye" });
-//   };
-
-//   function muteAudio() {
-//     if (audiostate) {
-//       teacherVideo.current.muted = true;
-//       setAudio(false);
-//     } else {
-//       teacherVideo.current.muted = false;
-//       setAudio(true);
-//     }
-//   }
-//   return (
-//     <>
-//       <main className="container  ">
-//         <div className="video bg-main">
-//           <video
-//             ref={teacherVideo}
-//             className="video-item"
-//             autoPlay
-//             playsInline
-//             src=" "
-//           ></video>
-//           <video
-//             ref={remoteVideo}
-//             className="video-item"
-//             autoPlay
-//             playsInline
-//             src=" "
-//           ></video>
-//         </div>
-
-//         <div className="btn">
-//           <button
-//             className="btn-item btn-start"
-//             ref={startButton}
-//             onClick={startB}
-//           >
-//             <FiVideo />
-//           </button>
-//           <button
-//             className="btn-item btn-end"
-//             ref={hangupButton}
-//             onClick={hangB}
-//           >
-//             <FiVideoOff />
-//           </button>
-//           <button
-//             className="btn-item btn-start"
-//             ref={muteAudButton}
-//             onClick={muteAudio}
-//           >
-//             {audiostate ? <FiMic /> : <FiMicOff />}
-//           </button>
-//         </div>
-//       </main>
-//     </>
-//   );
-// }
-
-// export default App
