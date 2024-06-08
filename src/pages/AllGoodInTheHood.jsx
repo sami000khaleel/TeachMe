@@ -3,7 +3,7 @@ import { useParams, useLocation } from "react-router-dom";
 import { useOutletContext } from "react-router-dom";
 import axios from "axios";
 import { io } from "socket.io-client"; // Make sure axios is imported
-import { Video, VideoOff, Mic, MicOff } from "lucide-react";
+import { Video, VideoOff, Mic, MicOff, Send } from "lucide-react";
 
 function useQuery() {
   return new URLSearchParams(useLocation().search);
@@ -22,11 +22,11 @@ const configuration = {
 };
 
 const Room = () => {
-  const [flag,setFlag]=useState(false)
+  const user = JSON.parse(localStorage.getItem("user"));
+  const [flag, setFlag] = useState(false);
   const [requestCallFlag, setRequestCallFlag] = useState(false);
   const [callStartedFlag, setCallStartedFlag] = useState(false);
   const [isMutedFlag, setIsMutedFlag] = useState(false);
-  const user = JSON.parse(localStorage.getItem("user"));
   const [teacherState, setTeacherState] = useState("offline");
   const [students, setStudents] = useState([]);
   const [gotStudentsFlag, setGotStudentsFlag] = useState(false);
@@ -35,10 +35,16 @@ const Room = () => {
     connected: false,
     streamStopped: false,
   });
+  const [message, setMessage] = useState({
+    studentId: String(user.id),
+    studentName: `${user.firstname} ${user.lastname}`,
+    studentImage: user.imageUrl,
+    content: "",
+  });
   let { socket, setModalState, modalState } = useOutletContext();
   let timeOutes = useRef({});
   let peersConnections = useRef({});
-
+  const [messages, setMessages] = useState([]);
   let teacherVideoRef = useRef();
   let studentVideoRef = useRef();
   const { courseId } = useParams();
@@ -48,7 +54,15 @@ const Room = () => {
     const updatedStudents = students.map((student) =>
       student.id_stu === updatedStudent.id_stu ? updatedStudent : student
     );
-    setStudents(updatedStudents);
+
+    const onlineStudents = updatedStudents.filter(
+      (student) => student.state !== "offline"
+    );
+    const offlineStudents = updatedStudents.filter(
+      (student) => student.state === "offline"
+    );
+
+    setStudents([...onlineStudents, ...offlineStudents]);
   }
   async function getStudents(flag) {
     try {
@@ -62,6 +76,7 @@ const Room = () => {
         ...student,
         studentRef: React.createRef(),
         state: "offline",
+        warning: "",
       }));
       if (flag) setGotStudentsFlag((pre) => !pre);
       console.log("got students", data.length);
@@ -142,9 +157,13 @@ const Room = () => {
               case "connected":
                 let stu = students.find((st) => st.id_stu == studentId);
                 if (stu) {
-                  stu = { ...stu, state: peersConnections[String(studentId)].connectionState };
-                  updateStudents(stu);}
-                  setFlag(pre=>!pre)
+                  stu = {
+                    ...stu,
+                    state: peersConnections[String(studentId)].connectionState,
+                  };
+                  updateStudents(stu);
+                }
+                setFlag((pre) => !pre);
                 console.log("Online");
 
                 break;
@@ -152,9 +171,13 @@ const Room = () => {
                 console.log("Disconnecting…");
                 let stu = students.find((st) => st.id_stu == studentId);
                 if (stu) {
-                  stu = { ...stu, state: peersConnections[String(studentId)].connectionState };
-                  updateStudents(stu);}
-                  setFlag(pre=>!pre)
+                  stu = {
+                    ...stu,
+                    state: peersConnections[String(studentId)].connectionState,
+                  };
+                  updateStudents(stu);
+                }
+                setFlag((pre) => !pre);
                 peersConnections[String(studentId)].close();
                 peersConnections[String(studentId)] = null;
                 break;
@@ -163,9 +186,13 @@ const Room = () => {
                 console.log("Offline");
                 let stu = students.find((st) => st.id_stu == studentId);
                 if (stu) {
-                  stu = { ...stu, state: peersConnections[String(studentId)].connectionState };
-                  updateStudents(stu);}
-                  setFlag(pre=>!pre)
+                  stu = {
+                    ...stu,
+                    state: peersConnections[String(studentId)].connectionState,
+                  };
+                  updateStudents(stu);
+                }
+                setFlag((pre) => !pre);
                 peersConnections[String(studentId)].close();
 
                 break;
@@ -174,9 +201,13 @@ const Room = () => {
                 console.log("Error");
                 let stu = students.find((st) => st.id_stu == studentId);
                 if (stu) {
-                  stu = { ...stu, state: peersConnections[String(studentId)].connectionState };
-                  updateStudents(stu);}
-                  setFlag(pre=>!pre)
+                  stu = {
+                    ...stu,
+                    state: peersConnections[String(studentId)].connectionState,
+                  };
+                  updateStudents(stu);
+                }
+                setFlag((pre) => !pre);
                 peersConnections[String(studentId)].close();
 
                 break;
@@ -185,7 +216,6 @@ const Room = () => {
                 console.log("Unknown");
                 break;
             }
-         
           },
           false
         );
@@ -364,11 +394,19 @@ const Room = () => {
           }
         };
         requestCall();
+        socket.on("message", ({ message }) => {
+          console.log('got the message ')
+          console.log(message)
+          setMessages((prev) => [...prev, message]);
+        });
         socket.on("ask-me-for-offer", async ({ callId }) => {
           // if (pc?.connectionState == "connected") return;
           console.log("time to ask for offer");
           setRequestCallFlag(true);
           socket.emit("request-offer", { callId });
+        });
+        socket.on("recieve-messages", ({ messages }) => {
+          setMessages(messages);
         });
         socket.on("teacher-offer", async ({ offer, callId }) => {
           try {
@@ -377,6 +415,7 @@ const Room = () => {
               pc = null;
             }
             if (pc?.connectionState == "connected") return;
+            socket.emit("request-messages", { callId });
             console.log("got teacher offer");
             await handleTeacherOffer({ offer, _id: callId });
           } catch (err) {
@@ -413,6 +452,8 @@ const Room = () => {
     }
     return () => {
       if (socket) {
+        socket.off('message');
+
         socket.emit("student-exit-call");
         socket.off("no-call");
         socket.off("teacher-offer");
@@ -454,13 +495,25 @@ const Room = () => {
             id="room"
             className="relative pt-[100px]  w-full flex flex-col justify-center items-center"
           >
+              {user.role == "student" ? (
+              <button
+                className="bg-white z-50 text-black fixed bottom-0 left-2"
+                onClick={() => {
+                  if (pc) pc.close();
+                  pc = null;
+                  socket.emit("request-offer", { callId });
+                }}
+              >
+                connect
+              </button>
+            ) : null}
             {user.role == "student" && (
               <div className="text-center absolute w-[100px] z-50 right-1/2 top-1/2 translate-x-[50%] -translate-y-1/2  ">
                 {teacherState == "offline" ? null : teacherState}
               </div>
             )}
             {/* <StudentsAttendingList students /> */}
-            <div className="relative ">
+            <div className="relative flex flex-col ">
               <div className="w-full aspect-video bg-black">
                 <video
                   ref={teacherVideoRef}
@@ -477,39 +530,42 @@ const Room = () => {
                       e.stopPropagation();
                       !callStartedFlag ? teacherMakeCall() : endCall();
                     }}
-                    className="bg-white text-black"
+                    className="bg-white rounded-full p-2 text-black"
                   >
-                    {!callStartedFlag ? <Video /> : <VideoOff />}
+                    {!callStartedFlag ? (
+                      <Video size={40} />
+                    ) : (
+                      <VideoOff size={40} />
+                    )}
                   </button>
                   <button
                     onClick={async (e) => {
-                      e.preventDefault()
-                      e.stopPropagation()
-                      toggleSound()
+                      e.preventDefault();
+                      e.stopPropagation();
+                      toggleSound();
                     }}
-                    
-                    className="bg-white text-black"
+                    className="bg-white rounded-full p-2 text-black"
                   >
-                    {isMutedFlag ? <Mic /> : <MicOff />}
+                    {isMutedFlag ? <Mic size={40} /> : <MicOff size={40} />}
                   </button>
                 </div>
               ) : null}
               {students.length && user.role == "teacher" ? (
-                <div className="flex flex-col">
+                <div className="flex sm:flex-col justify-center items-start mt-4">
                   {students.map((student) => (
                     <div
                       key={student.id_stu}
-                      className="flex flex-row  justify-around gap-5 items-center px-5 "
+                      className="flex sm:flex-row flex-col  justify-around gap-5 items-center px-5 "
                     >
                       <img
                         className="w-[80px] rounded-full aspect-square"
                         src={student.image_url}
                         alt={`${student.first_name_stu} ${student.last_name_stu}`}
                       />
-                      <h1>{student.state}</h1>
                       <h1>
                         {student.first_name_stu} {student.last_name_stu}
                       </h1>
+                      <h1>{student.state}</h1>
                       <video
                         playsInline
                         autoPlay
@@ -530,17 +586,44 @@ const Room = () => {
               ></video>
             ) : null} */}
 
-            {user.role == "student" ? (
-              <button
-                className="bg-white text-black absolute bottom-2 left-2"
-                onClick={() => {
-                  if (pc) pc.close();
-                  pc = null;
-                  socket.emit("request-offer", { callId });
-                }}
+          
+            {messages?.length
+              ? messages.map((message, index) => (
+                  <article
+                    className="flex flex-col justify-center items-center"
+                    id="messages"
+                    key={index}
+                  >
+                    <h1>{message.content}</h1>
+                  </article>
+                ))
+              : null}
+            {callId&&pc?.connectionState=='connected' ? (
+              <form
+                id="message form"
+                className="rounded-lg p-1 flex flex-row items-center dark:bg-white fixed bottom-6"
               >
-                connect
-              </button>
+                <input
+                  onChange={(e) =>
+                    setMessage((pre) => ({ ...pre, content: e.target.value }))
+                  }
+                  value={message.content}
+                  className="p-1 focus-visible:border-none text-black"
+                  type="text"
+                  name="message"
+                  id="message"
+                />
+                <button
+                  onClick={async (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    socket.emit("message", { message, callId });
+                    console.log('message emmited',message,callId)
+                  }}
+                >
+                  <Send fill="white" size={30} stroke="black" />
+                </button>
+              </form>
             ) : null}
           </section>
         ) : null}
