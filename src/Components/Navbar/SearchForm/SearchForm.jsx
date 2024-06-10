@@ -1,8 +1,10 @@
 import React, { useState } from "react";
 import { handleSearch } from "./SearchForm.js";
+import { useNavigate } from "react-router-dom";
 import { Search } from "lucide-react";
 import LoaddinSpinner from "../../LoadingSpinner/LoadingSpinner.jsx";
 const SearchForm = ({ setCourses, modalState, setModalState }) => {
+  const navigate=useNavigate()
   const [loadingFlag, setLoadingFlag] = useState(false);
   const [query, setQuery] = useState("");
   return (
@@ -28,7 +30,8 @@ const SearchForm = ({ setCourses, modalState, setModalState }) => {
             query,
             setCourses,
             setModalState,
-            setLoadingFlag
+            setLoadingFlag,
+            navigate
           )}
           className="absolute right-1 top-1/2 -translate-y-1/2"
           aria-label="send your search button"

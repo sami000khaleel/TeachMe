@@ -1,8 +1,11 @@
 import React from "react";
 import { Link } from "react-router-dom";
+import Cookies from 'js-cookies'
 const Logo = () => {
   return (
-    <Link  onClick={(e)=>window.location.assign('http://localhost:5173/home')} className="" to="/home">
+    <Link 
+    //  onClick={(e)=>window.location.assign(`https://${Cookies.getItem('serverAddress')}:5173/home`)} 
+     className="" to="/home">
       <h1 className="text-3xl text-primaryDark">
         <span  className="bg-primaryDark  text-[white] p-1 rounded-lg " >
         Teach

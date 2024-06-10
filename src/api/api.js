@@ -2,7 +2,7 @@ import axios from "axios";
 import Cookies from "js-cookies";
 
 export default class api {
-  static url = "http://127.0.0.1:3000/api";
+  static url = `/api`;
   static async getCourseInfo(id_course) {
     const response = await axios.get(
       `${api.url}/course_info?id_course=${id_course}`
@@ -71,13 +71,7 @@ export default class api {
   }
   static async getRandomCourses() {
     const user = JSON.parse(localStorage.getItem("user"));
-    const response = await axios.get(`${api.url}/student/get_courses`, {
-      headers: {
-        firstname: user.firstname,
-        lastname: user.lastname,
-        password: user.password,
-      },
-    });
+    const response = await axios.get(`${api.url}/student/get_courses`);
     return response;
   }
   static async getStudentCourses(studentId) {
@@ -159,6 +153,8 @@ export default class api {
   }
   static async getTeachersCourses() {
     const user = JSON.parse(localStorage.getItem("user"));
+    if(!user?.id)
+        return
     const response = await axios.get(
       `${api.url}/teacher/get_courses?id_teacher=${user.id}`,
       {

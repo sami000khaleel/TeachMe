@@ -212,6 +212,7 @@ export const enrollStudent =
   async (e) => {
     try {
       e.preventDefault();
+      console.log('enrolling')
       setLoadingFlag(true);
       await api.enrollStudent(courseId);
       setStudentIsEnrolledFlag(true);
@@ -393,6 +394,7 @@ export async function getTeachersCourses(
   setLoadingFlag
 ) {
   try {
+    
     setLoadingFlag(true);
     const { data } = await api.getTeachersCourses();
     setTeachersCourses(data.courses);

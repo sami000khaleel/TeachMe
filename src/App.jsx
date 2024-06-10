@@ -6,8 +6,8 @@ import ModalPopup from "./Components/ModalPopup/ModalPopup";
 import { handleThemeInit } from "./App";
 import Navbar from "./Components/Navbar/Navbar";
 import { io } from "socket.io-client";
-import api from "./api/api";
-import { VideoIcon,VideoOffIcon,MicIcon,MicOffIcon } from "lucide-react";
+
+import { VideoIcon, VideoOffIcon, MicIcon, MicOffIcon } from "lucide-react";
 let user = JSON.parse(localStorage.getItem("user"));
 let socket;
 
@@ -16,7 +16,7 @@ const App = () => {
   const navigate = useNavigate();
   const [students, setStudents] = useState([]);
   const [course, setCourse] = useState({});
-  
+
   const [modalState, setModalState] = useState({
     message: "",
     status: "",
@@ -41,10 +41,11 @@ const App = () => {
   const [courses, setCourses] = useState([]);
   useEffect(() => {
     handleThemeInit(setTheme);
+    if (location.pathname == "/") navigate("/home");
   }, []);
   useEffect(() => {
     if (user?.role) {
-      socket = io.connect("http://127.0.0.1:3000/", {
+      socket = io.connect(`/`, {
         auth: {
           role: user.role,
           email: user.email,
@@ -60,18 +61,20 @@ const App = () => {
             "a lesson is being conducted would you like to join ? "
           );
           if (res) navigate(`/room/${courseId}?callOnGoing=yes`);
-       else{
-        console.log('a')
-       }
+          else {
+            console.log("a");
+          }
         });
       }
     }
   }, [user.id]);
+ 
   return (
-    <main className="px-4  flex-col justify-center items-center text-black dark:text-primaryDarkText   relative min-h-screen bg-primaryLightBackground dark:bg-primaryDarkBackground">
+    <main className="  w-full flex-col justify-center items-center text-black dark:text-primaryDarkText   relative min-h-screen bg-primaryLightBackground dark:bg-primaryDarkBackground">
       {!modalState.hideFlag ? (
         <ModalPopup setModalState={setModalState} modalState={modalState} />
       ) : null}
+    
       <Navbar
         theme={theme}
         setTheme={setTheme}

@@ -1,15 +1,28 @@
-import React,{useState} from "react";
+import React,{useEffect, useState} from "react";
 import { useNavigate } from "react-router-dom";
 import { dateTrimmer } from "../../../App";
 import { Settings, Delete, Trash } from "lucide-react";
 import {handleDeleteCourse} from '../../../App'
-import { useOutletContext } from "react-router-dom";
+import { useOutletContext ,useLocation} from "react-router-dom";
+import axios from 'axios'
+import Cookies from 'js-cookies'
 const Course = ({ course, teachersCourseFlag,setUpdateMode ,setSelectedCourse}) => {
+  const location=useLocation()
   const [loadingFlag, setLoadingFlag] = useState(false);
   const [deletedFlag, setDeletedFlag] = useState(false);
-  const {setModalState}=useOutletContext()
+  const [teacherGivesCourseFlag,setTeacherGivesCourseFlag]=useState(false)
+  const {setModalState,user,serverAddress}=useOutletContext()
   const navigate = useNavigate();
-
+useEffect(()=>{
+if(user?.role!='teacher')
+  return
+axios.get(`/api/teacher/get-course-info?course_id=${course.id_cours}&id=${user.id}`,{
+  headers:{
+    email:user.email,
+    password:user.password
+  }
+}).then(({data})=>setTeacherGivesCourseFlag(true)).catch(err=>console.log(err))
+},[])
   return (
     <>
       {course?.id_cours ? (
@@ -19,13 +32,15 @@ const Course = ({ course, teachersCourseFlag,setUpdateMode ,setSelectedCourse}) 
           }`}
           key={course.id_cours}
         >
-          {new Date(course.first_cours) > new Date()&&teachersCourseFlag ? (
+          {new Date(course.first_cours) > new Date()&&teacherGivesCourseFlag&&location.pathname.includes('user') ? (
             <article className="flex gap-3 absolute right-5" id="actions">
               <a href="#form">
                 <Settings onClick={
                   (e)=>{
                     e.preventDefault()
                     e.stopPropagation()
+                    window.scrollTo({ top: 0, behavior: 'smooth' });
+
                     setSelectedCourse(course)
                     setUpdateMode(true)
                   }

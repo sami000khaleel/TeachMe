@@ -5,6 +5,7 @@ import axios from "axios";
 import { io } from "socket.io-client"; // Make sure axios is imported
 import { Video, VideoOff, Mic, MicOff, Send } from "lucide-react";
 import Messages from "../Components/Messages/Messages";
+import Cookies from "js-cookies";
 function useQuery() {
   return new URLSearchParams(useLocation().search);
 }
@@ -24,6 +25,9 @@ const configuration = {
 const Room = () => {
   const user = JSON.parse(localStorage.getItem("user"));
   const [flag, setFlag] = useState(false);
+  const [cameras, setCameras] = useState([]);
+  const [showCameraMenu, setShowCameraMenu] = useState(false);
+  const [selectedCamera, setSelectedCamera] = useState("");
   const [requestCallFlag, setRequestCallFlag] = useState(false);
   const [callStartedFlag, setCallStartedFlag] = useState(false);
   const [isMutedFlag, setIsMutedFlag] = useState(false);
@@ -50,24 +54,62 @@ const Room = () => {
   const { courseId } = useParams();
   const query = useQuery();
   const [callId, setCallId] = useState(null);
+  const getAvailableCameras = async () => {
+    try {
+      await navigator.mediaDevices.getUserMedia({ video: true });
+
+      const devices = await navigator.mediaDevices.enumerateDevices();
+      let cameras = devices.filter((device) => device.kind === "videoinput");
+      setCameras(cameras);
+      setSelectedCamera(cameras[0].deviceId);
+      return cameras;
+    } catch (err) {
+      console.log(err);
+    }
+  };
   function updateStudents(updatedStudent) {
+    console.log(updatedStudent, "updated student");
     const updatedStudents = students.map((student) =>
       student.id_stu === updatedStudent.id_stu ? updatedStudent : student
     );
-
+    console.log(updatedStudents, "updates students");
     const onlineStudents = updatedStudents.filter(
       (student) => student.state !== "offline"
     );
+    console.log(onlineStudents, "online online");
     const offlineStudents = updatedStudents.filter(
       (student) => student.state === "offline"
     );
-
+    console.log(offlineStudents, "offoff off ");
     setStudents([...onlineStudents, ...offlineStudents]);
   }
+  const updateTeacherStream = async (deviceId) => {
+    try {
+      const constraints = {
+        video: { deviceId: { exact: deviceId } },
+        audio: true,
+      };
+
+      const stream = await navigator.mediaDevices.getUserMedia(constraints);
+      teacherVideoRef.current.srcObject = stream;
+
+      // Update the peer connections with the new stream
+      for (const key in peersConnections.current) {
+        const peerConnection = peersConnections.current[key];
+        peerConnection.getSenders().forEach((sender) => {
+          if (sender.track.kind === "video") {
+            sender.replaceTrack(stream.getVideoTracks()[0]);
+          }
+        });
+      }
+    } catch (err) {
+      console.log(err);
+    }
+  };
   async function getStudents(flag) {
     try {
       const { data } = await axios.get(
-        `http://127.0.0.1:3000/api/student/get_students_by_course?courseId=${courseId}`
+        `/api/student/get_students_by_course?courseId=${courseId}`
       );
       if (!data.length) throw new Error("no students were found");
 
@@ -98,23 +140,25 @@ const Room = () => {
     }
   };
 
-  const initializeTeacherStream = async () => {
+  const initializeTeacherStream = async (deviceId) => {
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: true,
+      const constraints = {
+        video: { deviceId: deviceId ? { exact: deviceId } : undefined },
         audio: true,
-      });
+      };
+
+      const stream = await navigator.mediaDevices.getUserMedia(constraints);
       teacherVideoRef.current.srcObject = stream;
       return stream;
     } catch (err) {
       console.error("Error accessing teacher media devices:", err);
     }
   };
-
+  console.log(cameras);
   async function createCall() {
     if (user.role !== "teacher") return null;
     const { data } = await axios.post(
-      "http://127.0.0.1:3000/api/teacher/create_lesson",
+      `/api/teacher/create_lesson`,
       {
         teacherId: user.id,
         courseId,
@@ -137,19 +181,20 @@ const Room = () => {
       if (!call) return;
       setCallId(call._id);
       if (!students.length) await getStudents(true);
-      const teacherStream = await initializeTeacherStream();
+      const teacherStream = await initializeTeacherStream(selectedCamera);
 
       if (!teacherStream) return;
       setCallStartedFlag(true);
       socket.emit("ask-me-for-offer", { callId: call._id });
       socket.on("request-offer", async ({ studentId }) => {
+        console.log("teacher was asked for offer", studentId);
         peersConnections[String(studentId)] = new RTCPeerConnection(
           configuration
         );
-        peersConnections[String(studentId)].addEventListener(
+        peersConnections[String(studentId)]?.addEventListener(
           "connectionstatechange",
           (event) => {
-            switch (peersConnections[String(studentId)].connectionState) {
+            switch (peersConnections[String(studentId)]?.connectionState) {
               case "new":
               case "connecting":
                 console.log("Connecting…");
@@ -188,7 +233,7 @@ const Room = () => {
                 if (stu) {
                   stu = {
                     ...stu,
-                    state: peersConnections[String(studentId)].connectionState,
+                    state: peersConnections[String(studentId)]?.connectionState,
                   };
                   updateStudents(stu);
                 }
@@ -247,9 +292,7 @@ const Room = () => {
             student.connected = true;
             student.streamStopped = false;
             updateStudents(student);
-            if (timeOutes[String(student.id_stu)]) {
-              clearTimeout(timeOutes[String(student.id_stu)]);
-            }
+
             setStudents(students);
           };
           await peersConnections[String(student.id_stu)]
@@ -357,11 +400,11 @@ const Room = () => {
         .getTracks()
         .forEach((track) => pc.addTrack(track, studentStream));
       let answer;
-      answer = await pc.createAnswer().catch((err) =>
-        setTimeout(async () => {
-          answer = await pc.createAnswer();
-        }, 2000)
-      );
+      answer = await pc.createAnswer().catch((err) => console.log(err));
+      //   setTimeout(async () => {
+      //     answer = await pc.createAnswer().catch(err=>console.log(err));
+      //   }, 2000)
+      // );
       await pc.setLocalDescription(answer);
       socket.emit("student-answer", {
         callId: data._id,
@@ -383,7 +426,7 @@ const Room = () => {
         const requestCall = async () => {
           try {
             const { data } = await axios.get(
-              `http://localhost:3000/api/student/request_call?courseId=${courseId}`
+              `/api/student/request_call?courseId=${courseId}`
             );
             setCallId(data._id);
             socket.emit("request-offer", { callId: data._id });
@@ -394,26 +437,28 @@ const Room = () => {
           }
         };
         requestCall();
-        socket.on('teacher-end-call',({callId})=>{
-          if(pc){
-          pc.close()
-                pc=null
-                console.log('student-closed-the-pc')}
-        })
+        socket.on("teacher-end-call", ({ callId }) => {
+          if (pc) {
+            pc.close();
+            pc = null;
+            console.log("student-closed-the-pc");
+            setTeacherState("offline");
+          }
+        });
         socket.on("ask-me-for-offer", async ({ callId }) => {
           // if (pc?.connectionState == "connected") return;
           console.log("time to ask for offer");
           setRequestCallFlag(true);
           socket.emit("request-offer", { callId });
         });
-     
+
         socket.on("teacher-offer", async ({ offer, callId }) => {
           try {
+            if (pc?.connectionState == "connected") return;
             if (pc) {
               pc.close();
               pc = null;
             }
-            if (pc?.connectionState == "connected") return;
             socket.emit("request-messages", { callId });
             console.log("got teacher offer");
             await handleTeacherOffer({ offer, _id: callId });
@@ -439,13 +484,12 @@ const Room = () => {
           }
         });
         socket.on("teacher-disconnected", ({ teacherId }) => {
-          let tCnct = teacherConnection;
-          tCnct.streamStopped = true;
-          teacherTimeOut = setTimeout(() => {
-            tCnct.streamStopped = true;
-            tCnct.connected = false;
-          }, 5000);
-          setTeacherConnection(tCnct);
+          if(!pc)return
+          pc.close()
+          pc = null
+          setTeacherConnection('offline')
+          
+          
         });
       }
       socket.on("recieve-messages", ({ messages }) => {
@@ -457,7 +501,6 @@ const Room = () => {
         setMessages((prev) => [...prev, message]);
       });
       socket.emit("request-messages", { callId });
-
     }
     return () => {
       if (socket) {
@@ -472,8 +515,7 @@ const Room = () => {
       }
       if (pc) {
         pc.close();
-        if(user.role=='teacher')
-          socket.emit('teacher-end-call',{callId})
+        if (user.role == "teacher") socket.emit("teacher-end-call", { callId });
       }
     };
   }, [socket]);
@@ -484,7 +526,7 @@ const Room = () => {
         peersConnections[key].close();
         peersConnections[key] = null;
       }
-      socket.emit('teacher-end-call',{callId})
+      socket.emit("teacher-end-call", { callId });
     }
     teacherVideoRef.current.srcObject.getTracks()[0].stop();
     teacherVideoRef.current.srcObject.getTracks()[1].stop();
@@ -499,31 +541,73 @@ const Room = () => {
 
     setIsMutedFlag((prev) => !prev);
   };
+  useEffect(() => {
+    if (user?.role != "teacher") return;
+    getAvailableCameras();
+  }, []);
+  console.log(peersConnections);
+  function getStudentState(id) {}
   if (socket)
     return (
       <div>
+        {user.role === "teacher" ? (
+          <div className="absolute top-[100px] z-[99999999999999999999999]">
+            <button
+              className="text-black  z-[999999999999999999999999]  bg-white p-2 rounded-full"
+              onClick={() => setShowCameraMenu((prev) => !prev)}
+            >
+              Switch Camera
+            </button>
+            {showCameraMenu && (
+              <div className="absolute  bg-white p-2 rounded-lg shadow-lg">
+                <ul className="mt-[100px] ">
+                  {cameras.map((camera) => (
+                    <li
+                      key={camera.deviceId}
+                      className={`text-black  cursor-pointer p-2 ${
+                        camera.deviceId === selectedCamera ? "bg-gray-200" : ""
+                      }`}
+                      onClick={() => {
+                        setSelectedCamera(camera.deviceId);
+                        updateTeacherStream(camera.deviceId);
+                        setShowCameraMenu(false);
+                      }}
+                    >
+                      {camera.label || `Camera ${camera.deviceId}`}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </div>
+        ) : null}
         {user.role == "student" || students.length ? (
           <section
             id="room"
             className="relative pt-[100px]  w-full flex flex-col justify-center items-center"
           >
-            {user.role == "student" ? (<div className=" flex flex-col justify-center items-center fixed bottom-0 left-2">
+            {user.role == "student" ? (
+              <div className=" z-[9999999] flex flex-col justify-center items-center fixed bottom-0 left-2">
                 <div className="text-center  w-[100px] z-50   ">
                   {teacherState == "offline" ? null : teacherState}
                 </div>
-              {pc&&teacherState!='connected'?<button
-                className=" z-50 text-white p-3 rounded-xl bg-green-500   "
-                onClick={() => {
-                  if (pc) pc.close();
-                  pc = null;
-                  socket.emit("request-offer", { callId });
-                }}
-                >
-                connect
-              </button>:null}
-                </div>
+                {pc &&
+                teacherState != "connected" &&
+                teacherState != "disconnected" ? (
+                  <button
+                    className="  text-white p-3 rounded-xl bg-green-500   "
+                    onClick={() => {
+                      if (pc) pc.close();
+                      pc = null;
+                      socket.emit("request-offer", { callId });
+                    }}
+                  >
+                    connect
+                  </button>
+                ) : null}
+              </div>
             ) : null}
-           
+
             {/* <StudentsAttendingList students /> */}
             <div className="relative flex flex-col ">
               <div className="w-full aspect-video bg-black">
@@ -563,21 +647,26 @@ const Room = () => {
                 </div>
               ) : null}
               {students.length && user.role == "teacher" ? (
-                <div className="flex sm:flex-col justify-center items-start mt-4">
+                <div className="flex sm:flex-col justify-center gap-2 w-6/8  items-start mt-4">
                   {students.map((student) => (
                     <div
                       key={student.id_stu}
-                      className="flex sm:flex-row flex-col  justify-around gap-5 items-center px-5 "
+                      className="dark:bg-gray-800 bg-white  w-full flex sm:flex-row flex-col  justify-around gap-3 rounded-xl p-2 items-center  px-5 "
                     >
                       <img
                         className="w-[80px] rounded-full aspect-square"
-                        src={student.image_url}
+                        src={`https://${import.meta.env.VITE_SERVER_ADDRESS}/${
+                          student.image_url
+                        }`}
                         alt={`${student.first_name_stu} ${student.last_name_stu}`}
                       />
                       <h1>
                         {student.first_name_stu} {student.last_name_stu}
                       </h1>
-                      <h1>{student.state}</h1>
+                      <h1>
+                        {peersConnections[String(student.id_stu)]
+                          ?.connectionState || "offline"}
+                      </h1>
                       <video
                         playsInline
                         autoPlay
@@ -597,8 +686,14 @@ const Room = () => {
                 className="absolute right-0 bottom-0 bg-black w-[150px] aspect-square"
               ></video>
             ) : null} */}
-             <Messages pc={pc} callId={callId} setMessage={setMessage}  message={message} messages={messages} socket={socket} /> 
-           
+            <Messages
+              pc={pc}
+              callId={callId}
+              setMessage={setMessage}
+              message={message}
+              messages={messages}
+              socket={socket}
+            />
           </section>
         ) : null}
       </div>

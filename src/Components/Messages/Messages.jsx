@@ -3,7 +3,7 @@ import { Send } from 'lucide-react';
 const Messages = ({pc, messages,callId ,socket,message,setMessage}) => {
   console.log(pc?.connectionState)
     return (
-    <div className="min-h-screen w-full bg-white dark:bg-gray-900 text-black flex flex-col justify-start items-center dark:text-white">
+    <div className="mt-10 min-h-screen w-full bg-white dark:bg-gray-900 text-black flex flex-col justify-start items-center dark:text-white">
       <div className="container flex flex-col justify-start items-center  mx-auto p-4">
         {callId||pc?.connectionState=='connected'?.length ? (
           messages.map((message, index) => (
@@ -13,7 +13,7 @@ const Messages = ({pc, messages,callId ,socket,message,setMessage}) => {
             >
               <img
                 className="w-16 h-16 rounded-full mr-4"
-                src={message.studentImage}
+                src={`https://${import.meta.env.VITE_SERVER_ADDRESS}/${message.studentImage}`}
                 alt={message.studentName}
               />
               <div className="flex flex-col justify-center items-start">

@@ -29,7 +29,7 @@ const ModalPopup = ({ modalState, setModalState }) => {
     <article
     className={`fade-out ${
       modalState?.errorFlag? "text-red-600" : "text-[#25F433]"
-    } overflow-hidden bg-white shadow-2xl mt-3  flex flex-row items-center gap-6 justify-between w-full   p-1    text-red-600 z-[99999] fixed top-[60px] left-0  `}
+    } overflow-hidden bg-white shadow-2xl mt-3  flex flex-row items-center gap-6 justify-between w-full   p-1    text-red-600 z-[99999999999] fixed top-[60px] left-0  `}
   >
       {modalState?.errorFlag ? <Error /> : <Success />}
       <h1

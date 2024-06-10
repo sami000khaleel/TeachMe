@@ -11,9 +11,9 @@ const Login = () => {
   const navigate = useNavigate();
 
   return (
-    <div className="flex justify-center items-center min-h-screen ">
+    <div className="flex justify-center items-center min-h-screen">
       <form
-        className="mx-4 flex flex-col gap-5 shadow-xl w-full max-w-md p-8 bg-white dark:bg-black rounded-xl"
+        className="mx-4 flex  flex-col gap-5 shadow-xl w-full max-w-md p-8 bg-white dark:bg-black rounded-xl"
          
       >
         <h2 className="text-3xl font-bold mb-6 text-gray-800 dark:text-gray-200">Log in</h2>
@@ -78,7 +78,7 @@ const Login = () => {
         <h1 className="text-gray-700 dark:text-gray-300 mt-4">
           Forgot your password?
           <Link to="/recover-account">
-            <span className="p-2 rounded-lg text-primaryLightText dark:text-primaryDarkText dark:bg-primaryDarkBackground bg-primaryLightBackground hover:opacity-80">
+            <span className="p-2 rounded-lg text-primaryLightText inline-block m-1 dark:text-primaryDarkText grow-0 shrink-0 w-auto dark:bg-primaryDarkBackground bg-primaryLightBackground hover:opacity-80">
               Recover account
             </span>
           </Link>
@@ -87,7 +87,7 @@ const Login = () => {
         <h1 className="text-gray-700 dark:text-gray-300 mt-2">
           Do not have an account?
           <Link to="/signup">
-            <span className="p-2 rounded-lg text-primaryLightText dark:text-primaryDarkText dark:bg-primaryDarkBackground bg-primaryLightBackground hover:opacity-80">
+            <span className="p-2 m-1 rounded-lg inline-block text-primaryLightText dark:text-primaryDarkText dark:bg-primaryDarkBackground bg-primaryLightBackground hover:opacity-80">
               Sign up
             </span>
           </Link>

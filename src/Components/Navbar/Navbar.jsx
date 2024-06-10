@@ -12,7 +12,7 @@ const Navbar = ({ theme,setTheme,user, modalState, setModalState, setCourses }) 
   return (
     <header
       aria-label="header"
-      className="  text-primaryDark fixed  z-[99999] white shadow-xl dark:bg-black top-0 left-0 w-full"
+      className="  text-primaryDark sticky top-0 left-0  z-[99999] white shadow-xl dark:bg-black  w-full"
     >
       <nav className="z-[99999] flex justify-between items-center py-4 px-5 ">
        <span className="flex items-center gap-5 justify-center" >

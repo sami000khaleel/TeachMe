@@ -4,7 +4,7 @@ const Courses = ({courses,teachersCourseFlag,setSelectedCourse,setUpdateMode}) =
   return (
     <article className="w-full flex flex-wrap justify-center">
     {courses.map((course) => (
-      <Course setUpdateMode={setUpdateMode} teachersCourseFlag={teachersCourseFlag} setSelectedCourse={setSelectedCourse} key={course.id_cours} course={course} />
+      <Course setUpdateMode={setUpdateMode}  setSelectedCourse={setSelectedCourse} key={course.id_cours} course={course} />
     ))}
   </article>  )
 }

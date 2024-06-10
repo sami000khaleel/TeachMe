@@ -1,7 +1,7 @@
 import Cookies from "js-cookies";
 import api from "../../../api/api";
 export const handleSearch =
-  (query, setCourses, setModalState, setLoadingFlag) => async (e) => {
+  (query, setCourses, setModalState, setLoadingFlag,navigate) => async (e) => {
     e.preventDefault();
     try {
       if (!query)
@@ -21,6 +21,7 @@ export const handleSearch =
           errorFlag: true,
           hideFlag: false,
         });
+        console.log(data)
       setCourses(data);
       setModalState({
         message: "courses were fetched successfull",
@@ -29,6 +30,7 @@ export const handleSearch =
         hideFlag: false,
       });
       setLoadingFlag(false);
+      navigate('/home')
     } catch ({ response }) {
       console.error(response);
       setLoadingFlag(false);

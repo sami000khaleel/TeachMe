@@ -31,6 +31,7 @@ const Course = () => {
   } = useOutletContext();
 
   useEffect(() => {
+    getCourseInfo(courseId, setLoadingFlag, setCourse, setModalState);
     if (user.role === "student") {
       checkStudentIsEnrolled(
         user.id,
@@ -39,8 +40,7 @@ const Course = () => {
         setStudentIsEnrolledFlag,
         courseId
       );
-      getCourseInfo(courseId, setLoadingFlag, setCourse, setModalState);
-    } else {
+    } if(user.role=='teacher') {
       setStudentIsEnrolledFlag(false);
       fetchTeachersCourseDetails(
         courseId,
@@ -53,8 +53,9 @@ const Course = () => {
     }
   }, [courseId]);
 
-  return (
-    <section className="flex flex-col justify-center items-center min-h-screen w-full">
+  return (<div className="min-h-screen flex flex-col justify-center items-center">
+    {Object.keys(course)?.length
+    ?<section className="flex flex-col justify-center items-center min-h-screen w-full">
       {course?.id_cours ? (
         <div
           className="max-w-[600px] flex justify-between flex-col p-4 border m-6 rounded-lg bg-white border-primaryDark dark:bg-black w-full"
@@ -83,7 +84,11 @@ const Course = () => {
             <h1 className="text-gray-500">{course.date2}</h1>
           </article>
 
-          {!(new Date(course.first_cours) > new Date()) ? (
+          {!user?.role?<button onClick={e=>{
+            e.preventDefault()
+            e.stopPropagation()
+            navigate('/signup')
+          }} className="text-center bg-primaryDark p-2 rounded-lg  text-white  dark:text-white hover:bg-gray-600 font-bold  text-bg" >signup to join</button>:!(new Date(course.first_cours) > new Date()) ? (
             giveCourseAction(
               teacherGivesCourseFlag,
               setStudentIsEnrolledFlag,
@@ -94,11 +99,11 @@ const Course = () => {
             )
           ) : user.role == "teacher" || studentIsEnrolledFlag ? (
             <h2 className="text-primaryDark font-bold text-xl my-4">
-              course has not begun yet
+            the course has not begun yet
             </h2>
           ) : (
             <button
-              onClick={() =>
+              onClick={
                 enrollStudent(
                   courseId,
                   setModalState,
@@ -108,18 +113,18 @@ const Course = () => {
                 )
               }
               className="text-white bg-primaryDark rounded-lg py-2 hover:bg-primaryDarkBackground text-xl"
-            >
-              enroll
+              >
+              enroll 
             </button>
           )}
         </div>
       ) : (
-        <div className="flex justify-between flex-col p-4 border m-6 rounded-lg bg-white border-primaryDark dark:bg-black w-full"></div>
+        <div className="flex justify-between flex-col p-4 border  rounded-lg bg-white border-primaryDark dark:bg-black w-full"></div>
       )}
 
       {user.role === 'teacher' && teacherGivesCourseFlag && (
         <article id='students-in-the-course' className="max-w-[600px] p-4 border m-6 rounded-lg bg-white border-primaryDark dark:bg-black w-full">
-          <h1 className="dark:text-white font-bold text-2xl text-black mb-4">Students in the course:</h1>
+          <h1 className="dark:text-white font-bold text-2xl text-black mb-4">{loadingFlag?null:!students?.length?'no students are registered yet':'Students in this course :'}</h1>
           {students.map((student) => (
             <div key={student.id_stu} className="flex items-center my-2 p-2 border rounded-lg bg-gray-100 dark:bg-gray-800 w-full">
               <img
@@ -135,7 +140,8 @@ const Course = () => {
           ))}
         </article>
       )}
-    </section>
+    </section>:<div className="absolute right-1/2 top-1/2 translate-1/2 "><LoadingSpinner  /></div>}
+          </div>
   );
 };
 

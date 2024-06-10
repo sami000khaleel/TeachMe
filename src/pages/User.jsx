@@ -47,7 +47,7 @@ const User = () => {
             your courses
           </h1>
           <div className="max-w-[600px] flex flex-col items-center justify-center w-full">
-            <Courses setUpdateMode={setUpdateMode} setSelectedCourse={setSelectedCourse} teachersCourseFlag={true} courses={teachersCourses.length?teachersCourses:studentCourses} />
+            <Courses setUpdateMode={setUpdateMode} setSelectedCourse={setSelectedCourse}  courses={teachersCourses.length?teachersCourses:studentCourses} />
           </div>
         </article>
       ) : (

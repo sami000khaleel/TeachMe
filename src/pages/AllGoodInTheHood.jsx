@@ -1,634 +1,319 @@
-import React, { useState, useEffect, useRef } from "react";
-import { useParams, useLocation } from "react-router-dom";
-import { useOutletContext } from "react-router-dom";
-import axios from "axios";
-import { io } from "socket.io-client"; // Make sure axios is imported
-import { Video, VideoOff, Mic, MicOff, Send } from "lucide-react";
+const express = require("express");
+const path = require('path');
+const https = require("https");
+const fs = require("fs");
+const app = express();
+const Course = require("./models/course");
+const multer = require("multer");
 
-function useQuery() {
-  return new URLSearchParams(useLocation().search);
-}
-
-let studentStream;
-let teacherStream;
-let pc;
-const configuration = {
-  iceServers: [
-    {
-      urls: ["stun:stun1.l.google.com:19302", "stun:stun2.l.google.com:19302"],
-    },
-  ],
-  iceCandidatePoolSize: 1,
+const serverOptions = {
+  ca: fs.readFileSync("ca.crt"),
+  key: fs.readFileSync("cert.key"),
+  cert: fs.readFileSync("cert.crt")
 };
 
-const Room = () => {
-  const user = JSON.parse(localStorage.getItem("user"));
-  const [flag, setFlag] = useState(false);
-  const [requestCallFlag, setRequestCallFlag] = useState(false);
-  const [callStartedFlag, setCallStartedFlag] = useState(false);
-  const [isMutedFlag, setIsMutedFlag] = useState(false);
-  const [teacherState, setTeacherState] = useState("offline");
-  const [students, setStudents] = useState([]);
-  const [gotStudentsFlag, setGotStudentsFlag] = useState(false);
-  let teacherTimeOut = useRef();
-  const [teacherConnection, setTeacherConnection] = useState({
-    connected: false,
-    streamStopped: false,
-  });
-  const [message, setMessage] = useState({
-    studentId: String(user.id),
-    studentName: `${user.firstname} ${user.lastname}`,
-    studentImage: user.imageUrl,
-    content: "",
-  });
-  let { socket, setModalState, modalState } = useOutletContext();
-  let timeOutes = useRef({});
-  let peersConnections = useRef({});
-  const [messages, setMessages] = useState([]);
-  let teacherVideoRef = useRef();
-  let studentVideoRef = useRef();
-  const { courseId } = useParams();
-  const query = useQuery();
-  const [callId, setCallId] = useState(null);
-  function updateStudents(updatedStudent) {
-    const updatedStudents = students.map((student) =>
-      student.id_stu === updatedStudent.id_stu ? updatedStudent : student
-    );
+const server = https.createServer( serverOptions,app);
 
-    const onlineStudents = updatedStudents.filter(
-      (student) => student.state !== "offline"
-    );
-    const offlineStudents = updatedStudents.filter(
-      (student) => student.state === "offline"
-    );
+const io = require("socket.io")(server, {
+  cors: {
+    origin: "*",
+    methods: ["GET", "POST"],
+  },
+});
+const student_router = require("./routes/student_router");
+const teacher_router = require("./routes/teacher_router");
+const executeQuery = require("./config/db");
+const get_id = require("./models/get_id");
+const cors = require("cors");
+const bodyparser = require("body-parser");
+const { Socket } = require("socket.io");
 
-    setStudents([...onlineStudents, ...offlineStudents]);
-  }
-  async function getStudents(flag) {
-    try {
-      const { data } = await axios.get(
-        `http://127.0.0.1:3000/api/student/get_students_by_course?courseId=${courseId}`
-      );
-      if (!data.length) throw new Error("no students were found");
+const mongoose = require("mongoose");
+app.use(bodyparser.json());
+const Call = require("./models/call");
+app.use(cors());
+app.use(bodyparser.urlencoded({ extended: true }));
+mongoose
+  .connect("mongodb://127.0.0.1:27017/teachMe")
+  .then(() => console.log("connected to database"));
+let connectedSockets = [];
+io.on("connection", async (socket) => {
+  try {
+    let call;
+    let userId;
+    let studentsIds;
+    const { auth } = socket.handshake; // Accessing the query parameters
+    const { role, email, password, id } = auth;
 
-      // Add refs to each student object
-      const studentsWithRefs = data.map((student) => ({
-        ...student,
-        studentRef: React.createRef(),
-        state: "offline",
-        warning: "",
-      }));
-      if (flag) setGotStudentsFlag((pre) => !pre);
-      console.log("got students", data.length);
-      setStudents(studentsWithRefs);
-    } catch (error) {
-      console.log(error);
+    if (!role) {
+      throw new Error("A role must be sent");
     }
-  }
-  const initializeStudentStream = async () => {
-    try {
-      studentStream = await navigator.mediaDevices.getUserMedia({
-        video: true,
-        audio: false,
-      });
-      studentVideoRef.current.srcObject = studentStream;
-      return studentStream;
-    } catch (err) {
-      console.error("Error accessing student media devices:", err);
-    }
-  };
 
-  const initializeTeacherStream = async () => {
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: true,
-        audio: true,
-      });
-      teacherVideoRef.current.srcObject = stream;
-      return stream;
-    } catch (err) {
-      console.error("Error accessing teacher media devices:", err);
-    }
-  };
-
-  async function createCall() {
-    if (user.role !== "teacher") return null;
-    const { data } = await axios.post(
-      "http://127.0.0.1:3000/api/teacher/create_lesson",
-      {
-        teacherId: user.id,
-        courseId,
-      },
-      {
-        headers: {
-          email: user.email,
-          password: user.password,
-        },
+    if (role === "teacher") {
+      const { id_teacher } = await get_id.teacher(email, password);
+      console.log("connected ", role);
+      if (id_teacher != id) {
+        throw new Error("Error validating the teacher");
       }
-    );
-    return data;
-  }
+      userId = id_teacher;
+    } else if (role === "student") {
+      const student = await get_id.student(email, password);
+      userId = student.id_stu;
+      let coursesIds = await Course.get_idcourse_forstudent(userId);
+      console.log("connected ", role);
+      socket.emit("student-connected", { message: "student connected" });
+    } else {
+      throw new Error("Invalid role");
+    }
 
-  const teacherMakeCall = async () => {
-    try {
-      if (user.role != "teacher") return;
-
-      const call = await createCall();
+    connectedSockets.push({
+      socketId: socket.id,
+      role,
+      userId,
+    });
+    socket.on("request-offer", async ({ callId }) => {
+      call = await Call.findById(callId).catch((err) => {
+        socket.emit("error", { message: "call was not found" });
+        throw err;
+      });
       if (!call) return;
-      setCallId(call._id);
-      if (!students.length) await getStudents(true);
-      const teacherStream = await initializeTeacherStream();
-
-      if (!teacherStream) return;
-      setCallStartedFlag(true);
-      socket.emit("ask-me-for-offer", { callId: call._id });
-      socket.on("request-offer", async ({ studentId }) => {
-        peersConnections[String(studentId)] = new RTCPeerConnection(
-          configuration
-        );
-        peersConnections[String(studentId)].addEventListener(
-          "connectionstatechange",
-          (event) => {
-            switch (peersConnections[String(studentId)].connectionState) {
-              case "new":
-              case "connecting":
-                console.log("Connecting…");
-                break;
-              case "connected":
-                let stu = students.find((st) => st.id_stu == studentId);
-                if (stu) {
-                  stu = {
-                    ...stu,
-                    state: peersConnections[String(studentId)].connectionState,
-                  };
-                  updateStudents(stu);
-                }
-                setFlag((pre) => !pre);
-                console.log("Online");
-
-                break;
-              case "disconnected": {
-                console.log("Disconnecting…");
-                let stu = students.find((st) => st.id_stu == studentId);
-                if (stu) {
-                  stu = {
-                    ...stu,
-                    state: peersConnections[String(studentId)].connectionState,
-                  };
-                  updateStudents(stu);
-                }
-                setFlag((pre) => !pre);
-                peersConnections[String(studentId)].close();
-                peersConnections[String(studentId)] = null;
-                break;
-              }
-              case "closed": {
-                console.log("Offline");
-                let stu = students.find((st) => st.id_stu == studentId);
-                if (stu) {
-                  stu = {
-                    ...stu,
-                    state: peersConnections[String(studentId)].connectionState,
-                  };
-                  updateStudents(stu);
-                }
-                setFlag((pre) => !pre);
-                peersConnections[String(studentId)].close();
-
-                break;
-              }
-              case "failed": {
-                console.log("Error");
-                let stu = students.find((st) => st.id_stu == studentId);
-                if (stu) {
-                  stu = {
-                    ...stu,
-                    state: peersConnections[String(studentId)].connectionState,
-                  };
-                  updateStudents(stu);
-                }
-                setFlag((pre) => !pre);
-                peersConnections[String(studentId)].close();
-
-                break;
-              }
-              default:
-                console.log("Unknown");
-                break;
-            }
-          },
-          false
-        );
-        teacherStream.getTracks().forEach((track) => {
-          peersConnections[String(studentId)].addTrack(track, teacherStream);
-        });
-        peersConnections[String(studentId)].onicecandidate = (e) => {
-          if (e.candidate) {
-            socket.emit("teacher-candidate", {
-              teacherId: user.id,
-              callId: call._id,
-              candidate: e.candidate,
-            });
-            console.log("candidate was sent");
+      for (let connectedSocket of connectedSockets) {
+        if (connectedSocket.userId == call.teacherId)
+          socket
+            .to(connectedSocket.socketId)
+            .emit("request-offer", { studentId: userId });
+        console.log("student requested offer");
+      }
+    });
+    socket.on("ask-me-for-offer", async ({ callId }) => {
+      call = await Call.findById(callId).catch((err) => console.log(err));
+      studentsIds = call.students.map((stu) => stu.studentId);
+      for (let connectedSocket of connectedSockets) {
+        for (let id of studentsIds) {
+          if (id == connectedSocket.userId) {
+            console.log(connectedSocket.userId)
+            socket.to(connectedSocket.socketId).emit("ask-me-for-offer", { callId });
           }
-        };
-
-        const offer = await peersConnections[String(studentId)].createOffer();
-        await peersConnections[String(studentId)]
-          .setLocalDescription(offer)
-          .catch((err) => console.log(err));
-        socket.emit("teacher-offer", { callId: call._id, offer });
-        socket.on("student-answer", async ({ answer, studentId }) => {
-          console.log("got student answer");
-          let student = students.find((student) => student.id_stu == studentId);
-          peersConnections[String(student.id_stu)].ontrack = (e) => {
-            student.studentRef.current.srcObject = e.streams[0];
-            console.log("got student track");
-            student.connected = true;
-            student.streamStopped = false;
-            updateStudents(student);
-            if (timeOutes[String(student.id_stu)]) {
-              clearTimeout(timeOutes[String(student.id_stu)]);
-            }
-            setStudents(students);
-          };
-          await peersConnections[String(student.id_stu)]
-            .setRemoteDescription(answer)
-            .catch((err) => console.log(err));
-          console.log("student answer was set");
-        });
-        socket.on("student-candidate", async ({ candidate, studentId }) => {
-          console.log("got student candidate");
-          if (!peersConnections[String(studentId)]) {
-            console.log("no answers yet");
-            return;
-          }
-          await peersConnections[String(studentId)]
-            .addIceCandidate(candidate)
-            .catch((err) => console.log(err));
-          console.log("student candidate was set");
-        });
-      });
-    } catch (error) {
-      console.log(error);
-    }
-  };
-  const handleTeacherOffer = async (data) => {
-    try {
-      setCallId(data._id);
-      pc = new RTCPeerConnection(configuration);
-      pc.addEventListener(
-        "connectionstatechange",
-        async (event) => {
-          switch (pc.connectionState) {
-            case "new":
-            case "connecting":
-              console.log("Connecting…");
-              break;
-            case "connected": {
-              setRequestCallFlag(false);
-              console.log("Online");
-              break;
-            }
-            case "disconnected":
-              setTeacherState("disconnected");
-              console.log("Disconnecting…");
-              teacherVideoRef.current.srcObject.getTracks()[0].stop();
-              teacherVideoRef.current.srcObject.getTracks()[1].stop();
-              // pc.close()
-              // pc=null
-              setRequestCallFlag(true);
-              break;
-
-            case "closed":
-              teacherVideoRef.current.srcObject.getTracks()[0].stop();
-              teacherVideoRef.current.srcObject.getTracks()[1].stop();
-              pc.close();
-              pc = null;
-              setRequestCallFlag(true);
-
-              console.log("Offline");
-              break;
-
-            case "failed":
-              console.log("Error");
-              teacherVideoRef.current.srcObject.getTracks()[0].stop();
-              teacherVideoRef.current.srcObject.getTracks()[1].stop();
-              pc.close();
-              pc = null;
-              setRequestCallFlag(true);
-              break;
-
-            default:
-              console.log("Unknown");
-              break;
-          }
-          if (pc) {
-            setTeacherState(pc.connectionState);
-            if (pc.connectionState == "connecting")
-              setTeacherConnection("ask for connection");
-          }
-        },
-        false
-      );
-      pc.ontrack = (e) => {
-        teacherVideoRef.current.srcObject = e.streams[0];
-        console.log("got teacher tracks");
-        setTeacherConnection((pre) => ({
-          connected: true,
-          streamStopped: false,
-        }));
-        clearTimeout(teacherTimeOut);
-      };
-      await pc.setRemoteDescription(data.offer);
-      console.log("teacher offer was set");
-      pc.onicecandidate = (e) => {
-        if (e.candidate) {
-          socket.emit("student-candidate", {
-            callId: data._id,
-            candidate: e.candidate,
-          });
         }
-      };
+      }
+    });
+    socket.on('request-messages',async({callId})=>{
+      call=await Call.findById(callId)
+      if(!call)return
+      const {messages}=call
+      socket.emit('recieve-messages',{messages})
+    })
+    socket.on('teacher-end-call',async({callId})=>{
+      let calls=await Call.find({teacherId:userId,onGoing:true})
+      for(let call of calls){
+        call.onGoing=false
+        await call.save()
+      }
+      studentsIds = call.students.map((stu) => stu.studentId);
 
-      await initializeStudentStream();
+      for(let connectedSocket of connectedSockets)
+        if (studentsIds.includes(String(connectedSocket.userId))) {
+          socket
+            .to(connectedSocket.socketId)
+            .emit("teacher-end-call", { callId });
+        }
+    })
+    socket.on('message',async({message,callId})=>{
+      if (!message?.content || !message?.studentId || !message?.studentName || !message?.studentImage) 
+        return;        
+          console.log('got message')
+          const call=await Call.findById(callId)
+          call.messages.push(message)
+          await call.save()
+          studentsIds = call.students.map((stu) => stu.studentId);
+          const teacherSocket=connectedSockets.find(socket=>socket.userId==call.teacherId)
+          socket.to(teacherSocket.socketId).emit('message',{message})
+          socket.emit('message',  {message,callId} );
 
-      studentStream
-        .getTracks()
-        .forEach((track) => pc.addTrack(track, studentStream));
-      let answer;
-      answer = await pc.createAnswer().catch((err) =>
-        setTimeout(async () => {
-          answer = await pc.createAnswer();
-        }, 2000)
-      );
-      await pc.setLocalDescription(answer);
-      socket.emit("student-answer", {
-        callId: data._id,
-        answer,
+      for (let connectedSocket of connectedSockets) {
+        if (studentsIds.includes(String(connectedSocket.userId))) {
+          console.log('found it ',connectedSocket.socketId)
+          socket.to(connectedSocket.socketId)
+            .emit('message',  {message} );
+        }
+      }
+
+    })
+    socket.on("teacher-offer", async ({ callId, offer }) => {
+      call = await Call.findById(callId).catch((err) => {
+        socket.emit("error", { message: "call was not found" });
+        throw err;
       });
-      if (data?.teacherCandidate) {
-        data.candidate = data.teacherCandidate;
-      }
-      await pc.addIceCandidate(data.candidate);
-    } catch (err) {
-      console.error("Error handling teacher offer:", err);
-    }
-  };
-  useEffect(() => {
-    getStudents(false);
-    if (socket) {
-      if (user.role == "student") {
-        // if (query.get("callOnGoing") === "yes") {
-        const requestCall = async () => {
-          try {
-            const { data } = await axios.get(
-              `http://localhost:3000/api/student/request_call?courseId=${courseId}`
-            );
-            setCallId(data._id);
-            socket.emit("request-offer", { callId: data._id });
-            // await handleTeacherOffer(data);
-            // if (courseId) socket.emit("student-ask-for-call", { courseId });
-          } catch (err) {
-            console.error("Error requesting call:", err);
-          }
-        };
-        requestCall();
-        socket.on("message", ({ message }) => {
-          console.log('got the message ')
-          console.log(message)
-          setMessages((prev) => [...prev, message]);
-        });
-        socket.on("ask-me-for-offer", async ({ callId }) => {
-          // if (pc?.connectionState == "connected") return;
-          console.log("time to ask for offer");
-          setRequestCallFlag(true);
-          socket.emit("request-offer", { callId });
-        });
-        socket.on("recieve-messages", ({ messages }) => {
-          setMessages(messages);
-        });
-        socket.on("teacher-offer", async ({ offer, callId }) => {
-          try {
-            if (pc) {
-              pc.close();
-              pc = null;
-            }
-            if (pc?.connectionState == "connected") return;
-            socket.emit("request-messages", { callId });
-            console.log("got teacher offer");
-            await handleTeacherOffer({ offer, _id: callId });
-          } catch (err) {
-            console.error("Error handling teacher offer:", err);
-          }
-        });
 
-        socket.on("teacher-candidate", async ({ candidate }) => {
-          if (pc?.connectionState == "connected") return;
-          if (!pc) {
-            console.log("No peer connection to handle candidate");
-            return;
-          }
-          try {
-            console.log("got teacher candidate");
-            await pc
-              .addIceCandidate(candidate)
-              .catch((err) => console.log(err));
-            console.log("teacher candidate was set");
-          } catch (err) {
-            console.error("Error adding ICE candidate:", err);
-          }
-        });
-        socket.on("teacher-disconnected", ({ teacherId }) => {
-          let tCnct = teacherConnection;
-          tCnct.streamStopped = true;
-          teacherTimeOut = setTimeout(() => {
-            tCnct.streamStopped = true;
-            tCnct.connected = false;
-          }, 5000);
-          setTeacherConnection(tCnct);
-        });
+      if (call.teacherId != userId) {
+        throw new Error("This teacher does not give this course");
       }
-    }
-    return () => {
-      if (socket) {
-        socket.off('message');
 
-        socket.emit("student-exit-call");
-        socket.off("no-call");
-        socket.off("teacher-offer");
-        socket.off("teacher-candidate");
-        socket.off("teacher-disconnect");
-        socket.off("student-disconnect");
-      }
-      if (pc) {
-        pc.close();
-      }
-    };
-  }, [socket]);
-  async function endCall() {
-    for (let key in peersConnections) {
-      if (peersConnections[key]?.connectionState) {
-        console.log(peersConnections[key]);
-        peersConnections[key].close();
-        peersConnections[key] = null;
-      }
-    }
-    teacherVideoRef.current.srcObject.getTracks()[0].stop();
-    teacherVideoRef.current.srcObject.getTracks()[1].stop();
-    setCallStartedFlag(false);
-  }
-  const toggleSound = () => {
-    if (!teacherVideoRef.current.srcObject) return;
+      studentsIds = call.students.map((stu) => stu.studentId);
 
-    teacherVideoRef.current.srcObject.getAudioTracks().forEach((track) => {
-      track.enabled = !track.enabled;
+      call.offer = offer;
+      call.onGoing = true;
+
+      await call.save().catch((err) => {
+        socket.emit("error", { message: "Call could not be saved" });
+        throw err;
+      });
+      console.log(studentsIds);
+      for (let connectedSocket of connectedSockets) {
+        if (studentsIds.includes(String(connectedSocket.userId))) {
+          console.log(connectedSocket);
+          socket
+            .to(connectedSocket.socketId)
+            .emit("teacher-offer", { offer, callId });
+        }
+      }
     });
 
-    setIsMutedFlag((prev) => !prev);
-  };
-  if (socket)
-    return (
-      <>
-        {user.role == "student" || students.length ? (
-          <section
-            id="room"
-            className="relative pt-[100px]  w-full flex flex-col justify-center items-center"
-          >
-              {user.role == "student" ? (
-              <button
-                className="bg-white z-50 text-black fixed bottom-0 left-2"
-                onClick={() => {
-                  if (pc) pc.close();
-                  pc = null;
-                  socket.emit("request-offer", { callId });
-                }}
-              >
-                connect
-              </button>
-            ) : null}
-            {user.role == "student" && (
-              <div className="text-center absolute w-[100px] z-50 right-1/2 top-1/2 translate-x-[50%] -translate-y-1/2  ">
-                {teacherState == "offline" ? null : teacherState}
-              </div>
-            )}
-            {/* <StudentsAttendingList students /> */}
-            <div className="relative flex flex-col ">
-              <div className="w-full aspect-video bg-black">
-                <video
-                  ref={teacherVideoRef}
-                  className="aspect-video h-[400px]  "
-                  autoPlay
-                  playsInline
-                ></video>
-              </div>
-              {user.role == "teacher" ? (
-                <div className="flex mt-3 flex-row justify-evenly items-center">
-                  <button
-                    onClick={(e) => {
-                      e.preventDefault();
-                      e.stopPropagation();
-                      !callStartedFlag ? teacherMakeCall() : endCall();
-                    }}
-                    className="bg-white rounded-full p-2 text-black"
-                  >
-                    {!callStartedFlag ? (
-                      <Video size={40} />
-                    ) : (
-                      <VideoOff size={40} />
-                    )}
-                  </button>
-                  <button
-                    onClick={async (e) => {
-                      e.preventDefault();
-                      e.stopPropagation();
-                      toggleSound();
-                    }}
-                    className="bg-white rounded-full p-2 text-black"
-                  >
-                    {isMutedFlag ? <Mic size={40} /> : <MicOff size={40} />}
-                  </button>
-                </div>
-              ) : null}
-              {students.length && user.role == "teacher" ? (
-                <div className="flex sm:flex-col justify-center items-start mt-4">
-                  {students.map((student) => (
-                    <div
-                      key={student.id_stu}
-                      className="flex sm:flex-row flex-col  justify-around gap-5 items-center px-5 "
-                    >
-                      <img
-                        className="w-[80px] rounded-full aspect-square"
-                        src={student.image_url}
-                        alt={`${student.first_name_stu} ${student.last_name_stu}`}
-                      />
-                      <h1>
-                        {student.first_name_stu} {student.last_name_stu}
-                      </h1>
-                      <h1>{student.state}</h1>
-                      <video
-                        playsInline
-                        autoPlay
-                        ref={student.studentRef}
-                        className=" bg-black w-[150px] m-2  aspect-video"
-                      ></video>
-                    </div>
-                  ))}
-                </div>
-              ) : null}
-            </div>
-            {/* {user.role == "student" ? (
-              <video
-                playsInline
-                autoPlay
-                ref={studentVideoRef}
-                className="absolute right-0 bottom-0 bg-black w-[150px] aspect-square"
-              ></video>
-            ) : null} */}
+    socket.on("teacher-candidate", async ({ teacherId, callId, candidate }) => {
+      call = await Call.findById(callId).catch((err) => {
+        socket.emit("error", { message: "call was not found" });
+        throw err;
+      });
 
-          
-            {messages?.length
-              ? messages.map((message, index) => (
-                  <article
-                    className="flex flex-col justify-center items-center"
-                    id="messages"
-                    key={index}
-                  >
-                    <h1>{message.content}</h1>
-                  </article>
-                ))
-              : null}
-            {callId&&pc?.connectionState=='connected' ? (
-              <form
-                id="message form"
-                className="rounded-lg p-1 flex flex-row items-center dark:bg-white fixed bottom-6"
-              >
-                <input
-                  onChange={(e) =>
-                    setMessage((pre) => ({ ...pre, content: e.target.value }))
-                  }
-                  value={message.content}
-                  className="p-1 focus-visible:border-none text-black"
-                  type="text"
-                  name="message"
-                  id="message"
-                />
-                <button
-                  onClick={async (e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    socket.emit("message", { message, callId });
-                    console.log('message emmited',message,callId)
-                  }}
-                >
-                  <Send fill="white" size={30} stroke="black" />
-                </button>
-              </form>
-            ) : null}
-          </section>
-        ) : null}
-      </>
-    );
-};
+      if (call.teacherId != userId) {
+        throw new Error("Teacher is not the owner of this call");
+      }
 
-export default Room;
+      call.teacherCandidate = candidate;
+
+      await call.save().catch((err) => {
+        socket.emit("error", { message: "Call could not be saved" });
+        throw err;
+      });
+
+      for (let connectedSocket of connectedSockets) {
+        if (studentsIds?.includes(String(connectedSocket.userId))) {
+          socket.to(connectedSocket.socketId).emit("teacher-candidate", {
+            candidate,
+            callId,
+            courseId: call.courseId,
+          });
+        }
+      }
+    });
+    socket.on("student-answer", async ({ callId, answer }) => {
+      call = await Call.findById(callId).catch((err) => {
+        socket.emit("error", { message: "call was not found" });
+        throw err;
+      });
+      for (let student of call.students) {
+        if (student.studentId == userId) {
+          student.answer = answer;
+          await call.save();
+        }
+      }
+      for (let connectedSocket of connectedSockets) {
+        if (connectedSocket.userId == Number(call.teacherId))
+          socket
+            .to(connectedSocket.socketId)
+            .emit("student-answer", { answer, studentId: userId });
+        console.log("student answer was sent");
+      }
+    });
+    socket.on("student-candidate", async ({ callId, candidate }) => {
+      const call = await Call.findById(callId).catch((err) => {
+        socket.emit("error", { message: "call was not found" });
+        throw err;
+      });
+      for (let student of call.students) {
+        if (student.studentId == userId) {
+          student.candidate = candidate;
+          await call.save();
+        }
+      }
+      for (let connectedSocket of connectedSockets) {
+        if (connectedSocket.userId == call.teacherId)
+          socket
+            .to(connectedSocket.socketId)
+            .emit("student-candidate", { candidate, studentId: userId });
+        console.log("student canidiate was sent");
+      }
+    });
+    socket.on("student-ask-for-call", async ({ courseId }) => {
+      if (!userId) return;
+      let calls = await Call.find({ courseId, onGoing: true }).sort({
+        createdAt: -1,
+      });
+      // console.log(calls.length, " number of ongoing calls");
+      if (!calls?.length)
+        return socket.emit("no-calls", { message: "no calls are being made" });
+      call = calls[0];
+
+      if (call?.offer) {
+        socket.emit("teacher-offer", { offer: call.offer, callId: call._id });
+        // console.log('offer sent to student',call.offer)
+      }
+      if (call?.teacherCandidate) {
+        socket.emit("teacher-candidate", { candidate: call.teacherCandidate });
+        // console.log('candidate sent to student',call.teacherCandidate)
+      }
+    });
+    socket.on("student-request-call", async ({ callId, teacherId }) => {
+      for (let connectedSocket of connectedSockets) {
+        if (connectedSocket.userId == call.teacherId)
+          socket
+            .to(connectedSocket.socketId)
+            .emit("student-request-call", { studentId: userId });
+        console.log("student-request-call");
+      }
+    });
+    socket.on("student-exit-call", async () => {
+      if (call)
+        for (let connectedSocket of connectedSockets) {
+          if (connectedSocket.userId == call.teacherId)
+            socket
+              .to(connectedSocket.socketId)
+              .emit("student-exit-call", { studentId: userId });
+          console.log("student-exited");
+        }
+    });
+    socket.on("disconnect", async () => {
+      console.log("Disconnected");
+      connectedSockets = connectedSockets.filter(
+        (cs) => cs.socketId !== socket.id
+      );
+      if (role === "teacher" && call?._id) {
+        call.onGoing = false;
+        await call.save();
+        for (let connectedSocket of connectedSockets) {
+          if (connectedSocket.role == "student")
+            socket
+              .to(connectedSocket.socketId)
+              .emit("a", { teacherId: userId });
+        }
+      }
+      if (call?._id) {
+        if (role == "student") {
+          console.log("hi thereeee");
+          // Emit event to teacher that student has disconnected
+          for (let connectedSocket of connectedSockets) {
+            if (connectedSocket.userId == call.teacherId) {
+              {
+                socket
+                  .to(connectedSocket.userId)
+                  .emit("student-disconnected", { studentId: userId });
+              }
+            }
+          }
+        }
+      }
+    });
+  } catch (err) {
+    console.log(err);
+    socket.emit("error", { message: err.message });
+  }
+});
+server.listen(3000, () => {
+  console.log("server is runing");
+});
+app.use("/api/student", student_router);
+app.use("/api/teacher", teacher_router);
+app.use(express.static(path.join(__dirname, './dist')));
+app.get('*', (req, res) => {
+  res.sendFile(path.join(__dirname, 'dist', 'index.html'));
+});
