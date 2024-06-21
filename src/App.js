@@ -54,7 +54,9 @@ export function handleDeleteCourse(
   course,
   setLoadingFlag,
   setDeletedFlag,
-  setModalState
+  setModalState,
+  setUpdateMode,
+  setSelectedCourse
 ) {
   const user = JSON.parse(localStorage.getItem("user"));
   return async (e) => {
@@ -65,6 +67,9 @@ export function handleDeleteCourse(
       await api.deleteCourse(user.id, course.id_cours);
       setLoadingFlag(true);
       setDeletedFlag(true);
+      setUpdateMode(false)
+      setUpdateMode(false)
+      setSelectedCourse({})
       setModalState({
         message: "course was deleted successfuly",
         status: 200,

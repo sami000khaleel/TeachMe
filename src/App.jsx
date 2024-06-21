@@ -14,16 +14,19 @@ let socket;
 const App = () => {
   const location = useLocation();
   const navigate = useNavigate();
+  
   const [students, setStudents] = useState([]);
   const [course, setCourse] = useState({});
 
   const [modalState, setModalState] = useState({
     message: "",
     status: "",
+    warningFlag: false,
     errorFlag: false,
     hideFlag: true,
   });
   const [theme, setTheme] = useState("");
+  const [fetchTrigger,setFetchTrigger]=useState(false)
   const [user, setUser] = useState(() => {
     const user = JSON.parse(localStorage.getItem("user"));
     if (user?.id) return user;
@@ -68,14 +71,15 @@ const App = () => {
       }
     }
   }, [user.id]);
- 
+
   return (
-    <main className="  w-full flex-col justify-center items-center text-black dark:text-primaryDarkText   relative min-h-screen bg-primaryLightBackground dark:bg-primaryDarkBackground">
+    <main className="  w-full flex-col justify-center items-center text-black dark:text-primaryDarkText   relative min-h-screen bg-primaryLightBackground dark:bg-[rgb(42,42,51)]">
       {!modalState.hideFlag ? (
         <ModalPopup setModalState={setModalState} modalState={modalState} />
       ) : null}
-    
+
       <Navbar
+      setFetchTrigger={setFetchTrigger}
         theme={theme}
         setTheme={setTheme}
         user={user}
@@ -86,6 +90,7 @@ const App = () => {
       />
       <Outlet
         context={{
+          fetchTrigger,
           socket,
           modalState,
           setModalState,

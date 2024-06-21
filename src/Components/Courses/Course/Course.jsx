@@ -51,7 +51,9 @@ axios.get(`/api/teacher/get-course-info?course_id=${course.id_cours}&id=${user.i
                   course,
                   setLoadingFlag,
                   setDeletedFlag,
-                  setModalState
+                  setModalState,
+                  setUpdateMode,
+                  setSelectedCourse
                 )}
                 cursor={"pointer"}
               />

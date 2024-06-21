@@ -6,6 +6,7 @@ import { io } from "socket.io-client"; // Make sure axios is imported
 import { Video, VideoOff, Mic, MicOff, Send } from "lucide-react";
 import Messages from "../Components/Messages/Messages";
 import Cookies from "js-cookies";
+
 function useQuery() {
   return new URLSearchParams(useLocation().search);
 }
@@ -24,6 +25,7 @@ const configuration = {
 
 const Room = () => {
   const user = JSON.parse(localStorage.getItem("user"));
+  const [frameIntervalId, setFrameIntervalId] = useState(null);
   const [flag, setFlag] = useState(false);
   const [cameras, setCameras] = useState([]);
   const [showCameraMenu, setShowCameraMenu] = useState(false);
@@ -54,6 +56,58 @@ const Room = () => {
   const { courseId } = useParams();
   const query = useQuery();
   const [callId, setCallId] = useState(null);
+  const sendFrameToServer = async (stream, studentId) => {
+    try {
+      if ("ImageCapture" in window) {
+        // Use ImageCapture API
+        const videoTrack = stream.getVideoTracks()[0];
+        const imageCapture = new ImageCapture(videoTrack);
+        const blob = await imageCapture.takePhoto();
+        const formData = new FormData();
+        formData.append("file", blob, `${studentId}.jpg`);
+
+        const response = await axios.post(
+          "/api/student/check_frame",
+          formData,
+          {
+            headers: {
+              "Content-Type": "multipart/form-data",
+            },
+          }
+        );
+      } else {
+        // Fallback to using a hidden video element
+        const videoElement = document.createElement("video");
+        videoElement.srcObject = stream;
+        videoElement.play();
+        const canvas = document.createElement("canvas");
+        canvas.width = videoElement.videoWidth;
+        canvas.height = videoElement.videoHeight;
+
+        const context = canvas.getContext("2d");
+        context.drawImage(videoElement, 0, 0, canvas.width, canvas.height);
+
+        canvas.toBlob(async (blob) => {
+          const formData = new FormData();
+          formData.append("frame", blob, `${studentId}.jpg`);
+
+          const response = await axios.post(
+            "/api/student/check_frame",
+            formData,
+            {
+              headers: {
+                "Content-Type": "multipart/form-data",
+              },
+            }
+          );
+          console.log("Frame sent successfully using fallback:", response.data);
+        });
+      }
+    } catch (error) {
+      console.error("Error capturing or sending frame:", error);
+    }
+  };
+
   const getAvailableCameras = async () => {
     try {
       await navigator.mediaDevices.getUserMedia({ video: true });
@@ -207,6 +261,10 @@ const Room = () => {
                     state: peersConnections[String(studentId)].connectionState,
                   };
                   updateStudents(stu);
+                  socket.emit("student-joined-call", {
+                    studentId,
+                    callId: call._id,
+                  });
                 }
                 setFlag((pre) => !pre);
                 console.log("Online");
@@ -225,6 +283,7 @@ const Room = () => {
                 setFlag((pre) => !pre);
                 peersConnections[String(studentId)].close();
                 peersConnections[String(studentId)] = null;
+                socket.emit("student-out", { studentId, callId: call._id });
                 break;
               }
               case "closed": {
@@ -331,11 +390,13 @@ const Room = () => {
             case "connected": {
               setRequestCallFlag(false);
               console.log("Online");
+
               break;
             }
             case "disconnected":
               setTeacherState("disconnected");
               console.log("Disconnecting…");
+              clearInterval(frameIntervalId);
               teacherVideoRef.current.srcObject.getTracks()[0].stop();
               teacherVideoRef.current.srcObject.getTracks()[1].stop();
               // pc.close()
@@ -346,6 +407,7 @@ const Room = () => {
             case "closed":
               teacherVideoRef.current.srcObject.getTracks()[0].stop();
               teacherVideoRef.current.srcObject.getTracks()[1].stop();
+              clearInterval(frameIntervalId);
               pc.close();
               pc = null;
               setRequestCallFlag(true);
@@ -357,6 +419,7 @@ const Room = () => {
               console.log("Error");
               teacherVideoRef.current.srcObject.getTracks()[0].stop();
               teacherVideoRef.current.srcObject.getTracks()[1].stop();
+              clearInterval(frameIntervalId);
               pc.close();
               pc = null;
               setRequestCallFlag(true);
@@ -478,43 +541,62 @@ const Room = () => {
             await pc
               .addIceCandidate(candidate)
               .catch((err) => console.log(err));
-            console.log("teacher candidate was set");
           } catch (err) {
             console.error("Error adding ICE candidate:", err);
           }
         });
         socket.on("teacher-disconnected", ({ teacherId }) => {
-          if(!pc)return
-          pc.close()
-          pc = null
-          setTeacherConnection('offline')
-          
-          
+          if (!pc) return;
+          pc.close();
+          pc = null;
+          setTeacherConnection("offline");
         });
       }
+      socket.on('warning',async({warning})=>{
+        setModalState({
+          message:warning,
+          status:200,
+          errorState:false,
+          warningState:true,
+          hideFlag:false
+        })
+      })
       socket.on("recieve-messages", ({ messages }) => {
         setMessages(messages);
       });
       socket.on("message", ({ message }) => {
-        console.log("got the message ");
-        console.log(message);
         setMessages((prev) => [...prev, message]);
       });
       socket.emit("request-messages", { callId });
     }
     return () => {
+      console.log("out");
       if (socket) {
         socket.off("message");
 
         socket.emit("student-exit-call");
         socket.off("no-call");
+        socket.off("student-candidate");
+        socket.off("student-answer");
         socket.off("teacher-offer");
         socket.off("teacher-candidate");
         socket.off("teacher-disconnect");
         socket.off("student-disconnect");
       }
+      if (Object.keys(peersConnections).length && user.role == "teacher") {
+        let keys = Object.keys(peersConnections);
+        console.log(keys, peersConnections);
+        if (keys?.length)
+          for (let key of keys) {
+            console.log(key)
+            if (peersConnections[key] && key != "current")
+              peersConnections[key].close();
+          }
+      }
+
       if (pc) {
         pc.close();
+        clearInterval(frameIntervalId);
         if (user.role == "teacher") socket.emit("teacher-end-call", { callId });
       }
     };
@@ -522,7 +604,6 @@ const Room = () => {
   async function endCall() {
     for (let key in peersConnections) {
       if (peersConnections[key]?.connectionState) {
-        console.log(peersConnections[key]);
         peersConnections[key].close();
         peersConnections[key] = null;
       }
@@ -545,8 +626,59 @@ const Room = () => {
     if (user?.role != "teacher") return;
     getAvailableCameras();
   }, []);
-  console.log(peersConnections);
-  function getStudentState(id) {}
+  useEffect(() => {
+    function handleFramesInterval() {
+      if (user?.role == "teacher") return;
+      if (pc?.connectionState != "connected")
+        return clearInterval(frameIntervalId);
+      if (!studentStream || !user?.id) return;
+
+      let id = setInterval(() => {
+        sendFrameToServer(studentStream, user.id);
+      }, 1000);
+      setFrameIntervalId(id);
+    }
+    handleFramesInterval();
+  }, [pc?.connectionState]);
+
+  const [isDragging, setIsDragging] = useState(false);
+  const [x, setX] = useState(0);
+  const [y, setY] = useState(0);
+  const [yOff, setYOff] = useState(0);
+  const [xOff, setXOff] = useState(0);
+  const [savedY, setsavedY] = useState(0);
+  const [savedX, setSavedX] = useState(0);
+
+  const handleMouseDown = (event) => {
+    setIsDragging(true);
+    setX(event.clientX);
+    setY(event.clientY);
+  };
+
+  const handleMouseMove = (event) => {
+    if (isDragging) {
+      setXOff(savedX + (event.clientX - x));
+      setYOff(savedY + (event.clientY - y));
+    }
+  };
+
+  const handleMouseUp = () => {
+    setIsDragging(false);
+    const rect = studentVideoRef.current.getBoundingClientRect();
+
+    setSavedX(rect.left);
+    setsavedY(rect.top);
+  };
+  useEffect(() => {
+    if(user.role=='teacher')return
+    window.addEventListener("mouseup", handleMouseUp);
+    window.addEventListener("mousemove", handleMouseMove);
+
+    return () => {
+      window.removeEventListener("mouseup", handleMouseUp);
+      window.removeEventListener("mousemove", handleMouseMove);
+    };
+  }, []);
   if (socket)
     return (
       <div>
@@ -678,14 +810,23 @@ const Room = () => {
                 </div>
               ) : null}
             </div>
-            {/* {user.role == "student" ? (
+            {user.role == "student" ? (
               <video
                 playsInline
                 autoPlay
                 ref={studentVideoRef}
-                className="absolute right-0 bottom-0 bg-black w-[150px] aspect-square"
+                className="fixed  w-[150px] aspect-square"
+                onMouseDown={handleMouseDown}
+                onMouseMove={handleMouseMove}
+                onMouseUp={handleMouseUp}
+                style={{
+                  top: yOff,
+                  left: xOff,
+                  borderRadius: "40px",
+                  overflow: "hidden",
+                }}
               ></video>
-            ) : null} */}
+            ) : null}
             <Messages
               pc={pc}
               callId={callId}

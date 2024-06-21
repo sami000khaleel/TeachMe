@@ -45,11 +45,14 @@ function CourseForm({
     date2: { day: "", time: "" },
   });
   useEffect(() => {
-    if (!updateMode) return;
+    if (!updateMode) {
+      setFormData({})
+      return
+    }
     if (!selectedCourse?.id_cours) return;
     let date1 = selectedCourse.date1.split(" ");
     let date2 = selectedCourse.date2.split(" ");
-    console.log(date1)
+    console.log(date1);
     let user = JSON.parse(localStorage.getItem("user"));
     let obj = {};
     obj.date1 = { day: date1[0], time: date1[1] + " " + date1[2] };
@@ -63,7 +66,7 @@ function CourseForm({
     obj.id_teacher = user;
     setFormData(obj);
   }, [updateMode]);
-  console.log(formData)
+  console.log(formData);
   // console.log(selectedCourse)
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -99,6 +102,7 @@ function CourseForm({
         formData.date1.day + " " + formData.date1.time,
         formData.date2.day + " " + formData.date2.time
       );
+      setFormData({})
       const obj = {
         cours_name: formData.course_name,
         course_description: formData.course_description,
@@ -170,8 +174,13 @@ function CourseForm({
   };
 
   const getMinEndDate = () => {
-    if (!formData.first_course) return getMinDate();
-    const startDate = new Date(formData.first_course);
+    if (!formData.first_course)  {
+      const now = new Date();
+      now.setMonth(now.getMonth() + 1);
+      now.setDate(now.getDate() + 7);
+      return now;
+    }
+          const startDate = new Date(formData.first_course);
     startDate.setMonth(startDate.getMonth() + 1);
     return startDate;
   };
@@ -203,7 +212,7 @@ function CourseForm({
             type="text"
             id="course_name"
             name="course_name"
-            value={formData.course_name}
+            value={formData?.course_name}
             onChange={handleChange}
             className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-black"
           />
@@ -219,7 +228,7 @@ function CourseForm({
             type="text"
             id="course_description"
             name="course_description"
-            value={formData.course_description}
+            value={formData?.course_description}
             onChange={handleChange}
             className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-black"
           />
@@ -232,7 +241,7 @@ function CourseForm({
             Starts At:
           </label>
           <DatePicker
-            selected={formData.first_course}
+            selected={formData?.first_course}
             onChange={(date) => handleDateChange("first_course", date)}
             minDate={getMinDate()}
             maxDate={getMaxStartDate()}
@@ -266,7 +275,7 @@ function CourseForm({
           </label>
           <div className="flex gap-2">
             <select
-              value={formData.date1.day}
+              value={formData.date1?.day}
               onChange={(e) =>
                 handleDayTimeChange("date1", "day", e.target.value)
               }
@@ -282,7 +291,7 @@ function CourseForm({
               ))}
             </select>
             <select
-              value={formData.date1.time}
+              value={formData.date1?.time}
               onChange={(e) =>
                 handleDayTimeChange("date1", "time", e.target.value)
               }
@@ -308,7 +317,7 @@ function CourseForm({
           </label>
           <div className="flex gap-2">
             <select
-              value={formData.date2.day}
+              value={formData.date2?.day}
               onChange={(e) =>
                 handleDayTimeChange("date2", "day", e.target.value)
               }
@@ -324,7 +333,7 @@ function CourseForm({
               ))}
             </select>
             <select
-              value={formData.date2.time}
+              value={formData?.date2?.time}
               onChange={(e) =>
                 handleDayTimeChange("date2", "time", e.target.value)
               }
@@ -362,6 +371,14 @@ function CourseForm({
             update
           </button>
         )}
+        {updateMode?<button onClick={(e)=>{
+          e.preventDefault()
+          e.stopPropagation()
+          setUpdateMode(false)
+          setSelectedCourse({})
+        }} className="w-full text-blue-500  border-2 border-blue-500 dark:border-none bg-white  py-2 px-4 rounded-md hover:bg-blue-500 mt-2 hover:text-white font-bold transition duration-300">
+          forget it 
+        </button>:null}
       </form>
     </div>
   );

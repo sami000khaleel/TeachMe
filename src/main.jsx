@@ -12,6 +12,7 @@ import PageNotFound from './Pages/PageNotFound '
 import RecoverAccount from './pages/RecoverAccount.jsx'
 import ResetPassword from "./pages/ResetPassword.jsx";
 import Course from "./pages/Course.jsx";
+import ReportsPage from "./pages/ReportsPage.jsx";
 const router = createBrowserRouter([
   {
     path: "/",
@@ -49,6 +50,14 @@ const router = createBrowserRouter([
       {
         path: "/room/:courseId",
         element: <Room />,
+      },
+      {
+        path: "/reports/:courseId",
+        element: <ReportsPage />,
+      },
+      {
+        path: "/report/:callId",
+        element: <ReportsPage />,
       },
        
     ],

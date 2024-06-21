@@ -1,17 +1,25 @@
 import React from "react";
-import { Link } from "react-router-dom";
-import Cookies from 'js-cookies'
-const Logo = () => {
+import { useNavigate } from "react-router-dom";
+import Cookies from "js-cookies";
+const Logo = ({ setFetchTrigger }) => {
+  const navigate=useNavigate()
   return (
-    <Link 
-    //  onClick={(e)=>window.location.assign(`https://${Cookies.getItem('serverAddress')}:5173/home`)} 
-     className="" to="/home">
+    <button
+      onClick={(e) => {
+        e.preventDefault();
+        e.stopPropagation()
+        setFetchTrigger(pre=>!pre)
+        navigate('/home')
+      }}
+      className=""
+    >
       <h1 className="text-3xl text-primaryDark">
-        <span  className="bg-primaryDark  text-[white] p-1 rounded-lg " >
-        Teach
+        <span className="bg-primaryDark  text-[white] p-1 rounded-lg ">
+          Teach
         </span>
-       Me</h1>
-    </Link>
+        Me
+      </h1>
+    </button>
   );
 };
 

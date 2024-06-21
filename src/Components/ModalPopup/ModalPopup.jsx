@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import Success from "../../assets/svgs/Success";
 import Error from "../../assets/svgs/Error";
 import "./loaderAnimation.css";
+import { LucideMessageSquareWarning } from "lucide-react";
 
 const ModalPopup = ({ modalState, setModalState }) => {
   const [timerFlag, setTimerFlag] = useState(false);
@@ -31,7 +32,7 @@ const ModalPopup = ({ modalState, setModalState }) => {
       modalState?.errorFlag? "text-red-600" : "text-[#25F433]"
     } overflow-hidden bg-white shadow-2xl mt-3  flex flex-row items-center gap-6 justify-between w-full   p-1    text-red-600 z-[99999999999] fixed top-[60px] left-0  `}
   >
-      {modalState?.errorFlag ? <Error /> : <Success />}
+      {modalState?.errorFlag ? <Error /> :modalState?.warningFlag?<><LucideMessageSquareWarning stroke="red"/></>: <Success />}
       <h1
         className={`${
           modalState?.errorFlag ? "text-red-600" : "text-[#25F433]"

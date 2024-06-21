@@ -10,12 +10,12 @@ import LoadingSpinner from "../Components/LoadingSpinner/LoadingSpinner";
 const Home = () => {
   const navigate=useNavigate()
 
-  const { setModalState, modalState,courses,setCourses } = useOutletContext();
+  const {fetchTrigger, setModalState, modalState,courses,setCourses } = useOutletContext();
   const [loadingFlag, setLoadingFlag] = useState(false);
   useEffect(() => {
-    if(!courses.length)
     getRandomCourses(setCourses, setModalState, setLoadingFlag);
-  }, []);
+  }, [fetchTrigger]);
+  
   return (
     <>
            <section className="w-7/8 m-auto min-h-screen flex flex-row items-center max-w-[600px] shrink-0 grow-0 flex-wrap justify-center pt-[100px]">
